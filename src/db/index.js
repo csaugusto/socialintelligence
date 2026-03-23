@@ -24,7 +24,7 @@ function writeAll(articles) {
   fs.writeFileSync(DATA_FILE, JSON.stringify(articles, null, 2));
 }
 
-async function saveArticle({ nota, scores, ghostPost, image }) {
+async function saveArticle({ nota, scores, ghostPost }) {
   const articles = readAll();
   const record = {
     id: Date.now().toString(),
@@ -34,10 +34,11 @@ async function saveArticle({ nota, scores, ghostPost, image }) {
     decayType: nota.decayType,
     sourceTrend: nota.sourceTrend,
     tags: nota.tags,
+    copy: nota.copy || null,
+    hashtags: nota.hashtags || null,
     scores,
     ghostId: ghostPost?.id || null,
     ghostUrl: ghostPost?.url || null,
-    image: image || null,
     createdAt: new Date().toISOString(),
   };
   articles.unshift(record); // más recientes primero
