@@ -1,6 +1,10 @@
 const Groq = require('groq-sdk');
 
-const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
+let client = null;
+function getClient() {
+  if (!client) client = new Groq({ apiKey: process.env.GROQ_API_KEY });
+  return client;
+}
 
 const SITE_NAME = process.env.SITE_NAME || 'Social Intelligence';
 
@@ -17,7 +21,7 @@ async function generate(topic) {
   const prompt = buildPrompt(topic);
 
   try {
-    const completion = await client.chat.completions.create({
+    const completion = await getClient().chat.completions.create({
       model: 'llama-3.3-70b-versatile',
       temperature: 0.3,
       max_tokens: 2000,

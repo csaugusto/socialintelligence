@@ -4,7 +4,7 @@ const axios = require('axios');
  * Publica la nota en Ghost via Admin API.
  * Si no hay credenciales configuradas, opera en modo dry-run (solo log).
  */
-async function publish(nota, scores) {
+async function publish(nota, scores, image = null) {
   const ghostUrl = process.env.GHOST_URL;
   const adminKey = process.env.GHOST_ADMIN_API_KEY;
 
@@ -14,20 +14,26 @@ async function publish(nota, scores) {
     return { id: null, url: null, dryRun: true };
   }
 
+
   try {
     const [keyId, keySecret] = adminKey.split(':');
     const token = buildJWT(keyId, keySecret);
 
-    const payload = {
-      posts: [{
-        title: nota.title,
-        html: nota.content,
-        excerpt: nota.excerpt,
-        tags: nota.tags.map(t => ({ name: t })),
-        status: 'published',
-        meta_description: nota.excerpt,
-      }],
+    const post = {
+      title: nota.title,
+      html: nota.content,
+      excerpt: nota.excerpt,
+      tags: nota.tags.map(t => ({ name: t })),
+      status: 'published',
+      meta_description: nota.excerpt,
     };
+
+    if (image) {
+      post.feature_image = image.url;
+      post.feature_image_caption = `Foto: <a href="${image.authorUrl}" target="_blank">${image.authorName}</a> / Unsplash`;
+    }
+
+    const payload = { posts: [post] };
 
     const { data } = await axios.post(
       `${ghostUrl}/ghost/api/admin/posts/`,
@@ -41,8 +47,8 @@ async function publish(nota, scores) {
       }
     );
 
-    const post = data.posts[0];
-    return { id: post.id, url: post.url, dryRun: false };
+    const published = data.posts[0];
+    return { id: published.id, url: published.url, dryRun: false };
 
   } catch (err) {
     console.error('[Publisher] Error al publicar en Ghost:', err.response?.data || err.message);

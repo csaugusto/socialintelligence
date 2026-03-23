@@ -1,0 +1,41 @@
+services:
+  ghost:
+    image: ghost:5-alpine
+    container_name: ghost-local
+    restart: unless-stopped
+    ports:
+      - "2368:2368"
+    environment:
+      url: http://localhost:2368
+      database__client: mysql
+      database__connection__host: db
+      database__connection__user: ghost
+      database__connection__password: ghostpass
+      database__connection__database: ghost
+      mail__transport: Direct
+    volumes:
+      - ghost-content:/var/lib/ghost/content
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: mysql:8.0
+    container_name: ghost-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: ghost
+      MYSQL_USER: ghost
+      MYSQL_PASSWORD: ghostpass
+    volumes:
+      - ghost-db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "ghost", "-pghostpass"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  ghost-content:
+  ghost-db:
