@@ -24,17 +24,29 @@ type Article = {
     facebook: NetworkScore;
     tiktok: NetworkScore;
   };
+  copy?: {
+    instagram: string;
+    x: string;
+    facebook: string;
+    tiktok: string;
+  };
+  hashtags?: {
+    instagram: string[];
+    x: string[];
+    facebook: string[];
+    tiktok: string[];
+  };
   ghostUrl: string | null;
   image: { url: string } | null;
   createdAt: string;
 };
 
 const NETWORKS = [
-  { key: 'instagram', label: 'IG', color: 'pink' },
-  { key: 'x', label: 'X', color: 'sky' },
-  { key: 'facebook', label: 'FB', color: 'blue' },
-  { key: 'tiktok', label: 'TK', color: 'violet' },
-] as const;
+  { key: 'instagram' as const, label: 'Instagram', short: 'IG', emoji: '📸' },
+  { key: 'x' as const, label: 'X / Twitter', short: 'X', emoji: '𝕏' },
+  { key: 'facebook' as const, label: 'Facebook', short: 'FB', emoji: '👥' },
+  { key: 'tiktok' as const, label: 'TikTok', short: 'TK', emoji: '🎬' },
+];
 
 const RECOMMENDATION_STYLES: Record<string, string> = {
   PUBLICAR: 'bg-green-900 text-green-300 border-green-800',
@@ -60,6 +72,41 @@ function scoreColor(score: number) {
   return 'text-gray-500';
 }
 
+function ScoreBar({ value }: { value: number }) {
+  const color = value >= 70 ? 'bg-green-500' : value >= 55 ? 'bg-yellow-500' : value >= 35 ? 'bg-orange-500' : 'bg-gray-600';
+  return (
+    <div className="w-full bg-gray-700 rounded-full h-1 mt-1">
+      <div className={`${color} h-1 rounded-full`} style={{ width: `${value}%` }} />
+    </div>
+  );
+}
+
+function CopyBlock({ text, hashtags }: { text: string; hashtags?: string[] }) {
+  const [copied, setCopied] = useState(false);
+  const full = hashtags?.length ? `${text}\n\n${hashtags.join(' ')}` : text;
+
+  function copy() {
+    navigator.clipboard.writeText(full);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 group relative">
+      <p className="text-sm text-gray-200 leading-relaxed">{text}</p>
+      {hashtags?.length ? (
+        <p className="text-xs text-blue-400 mt-1">{hashtags.join(' ')}</p>
+      ) : null}
+      <button
+        onClick={copy}
+        className="absolute top-2 right-2 text-xs text-gray-500 hover:text-white bg-gray-800 hover:bg-gray-700 px-2 py-0.5 rounded transition-colors"
+      >
+        {copied ? '✓ Copiado' : 'Copiar'}
+      </button>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const router = useRouter();
   const [articles, setArticles] = useState<Article[]>([]);
@@ -68,14 +115,13 @@ export default function Dashboard() {
   async function loadArticles() {
     const res = await fetch('/api/articles');
     if (res.status === 401) { router.push('/login'); return; }
-    const data = await res.json();
-    setArticles(data);
+    setArticles(await res.json());
     setLoading(false);
   }
 
   useEffect(() => {
     loadArticles();
-    const interval = setInterval(loadArticles, 60000); // refresh cada minuto
+    const interval = setInterval(loadArticles, 60000);
     return () => clearInterval(interval);
   }, []);
 
@@ -94,22 +140,16 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-950 text-white">
       {/* Header */}
-      <header className="border-b border-gray-800 px-6 py-4 flex items-center justify-between">
+      <header className="border-b border-gray-800 px-6 py-4 flex items-center justify-between sticky top-0 bg-gray-950 z-10">
         <div>
           <h1 className="text-lg font-bold">Social Intelligence</h1>
           <p className="text-xs text-gray-500">Panel editorial</p>
         </div>
         <div className="flex items-center gap-4">
-          <button
-            onClick={loadArticles}
-            className="text-xs text-gray-400 hover:text-white transition-colors"
-          >
+          <button onClick={loadArticles} className="text-xs text-gray-400 hover:text-white transition-colors">
             ↻ Actualizar
           </button>
-          <button
-            onClick={handleLogout}
-            className="text-xs text-gray-400 hover:text-white transition-colors"
-          >
+          <button onClick={handleLogout} className="text-xs text-gray-400 hover:text-white transition-colors">
             Salir
           </button>
         </div>
@@ -129,6 +169,16 @@ export default function Dashboard() {
           <p className="text-xs text-gray-500 mb-1">Total en sistema</p>
           <p className="text-2xl font-bold">{articles.length}</p>
         </div>
+      </div>
+
+      {/* Score legend */}
+      <div className="px-6 py-3 border-b border-gray-800 flex items-center gap-6 text-xs text-gray-500">
+        <span className="font-medium text-gray-400">Scores:</span>
+        <span className="text-green-400">■ ≥70 Publicar</span>
+        <span className="text-yellow-400">■ 55–69 Considerar</span>
+        <span className="text-orange-400">■ 35–54 Esperar</span>
+        <span className="text-gray-600">■ &lt;35 No publicar</span>
+        <span className="ml-4 text-gray-600">Contenido = categoría + formato + caducidad · Momento = hora + día + disponibilidad</span>
       </div>
 
       {/* Articles */}
@@ -154,33 +204,25 @@ export default function Dashboard() {
 }
 
 function ArticleCard({ article }: { article: Article }) {
-  const [open, setOpen] = useState(false);
-  const time = new Date(article.createdAt).toLocaleTimeString('es-MX', {
-    hour: '2-digit', minute: '2-digit',
-  });
-  const date = new Date(article.createdAt).toLocaleDateString('es-MX', {
-    day: 'numeric', month: 'short',
-  });
+  const [tab, setTab] = useState<'scores' | 'copy' | null>(null);
+
+  const time = new Date(article.createdAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+  const date = new Date(article.createdAt).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
+
+  function toggleTab(t: 'scores' | 'copy') {
+    setTab(prev => prev === t ? null : t);
+  }
 
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
       {/* Row principal */}
-      <div
-        className="flex items-center gap-4 p-4 cursor-pointer hover:bg-gray-800/50 transition-colors"
-        onClick={() => setOpen(!open)}
-      >
-        {/* Imagen miniatura */}
+      <div className="flex items-center gap-4 p-4">
         {article.image ? (
-          <img
-            src={article.image.url}
-            alt=""
-            className="w-14 h-14 rounded-lg object-cover flex-shrink-0"
-          />
+          <img src={article.image.url} alt="" className="w-14 h-14 rounded-lg object-cover flex-shrink-0" />
         ) : (
           <div className="w-14 h-14 rounded-lg bg-gray-800 flex-shrink-0" />
         )}
 
-        {/* Info */}
         <div className="flex-1 min-w-0">
           <p className="font-medium text-sm leading-tight truncate">{article.title}</p>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -193,74 +235,116 @@ function ArticleCard({ article }: { article: Article }) {
         </div>
 
         {/* Scores compactos */}
-        <div className="flex gap-2 flex-shrink-0">
-          {NETWORKS.map(({ key, label }) => {
-            const s = article.scores[key as keyof typeof article.scores];
+        <div className="flex gap-3 flex-shrink-0">
+          {NETWORKS.map(({ key, short }) => {
+            const s = article.scores[key];
             return (
-              <div key={key} className="text-center w-10">
-                <p className="text-xs text-gray-500">{label}</p>
+              <div key={key} className="text-center w-9">
+                <p className="text-xs text-gray-500">{short}</p>
                 <p className={`text-sm font-bold ${scoreColor(s.content)}`}>{s.content}</p>
               </div>
             );
           })}
         </div>
 
-        <span className="text-gray-600 ml-2">{open ? '▲' : '▼'}</span>
-      </div>
-
-      {/* Detalle expandible */}
-      {open && (
-        <div className="border-t border-gray-800 p-4 space-y-4">
-          {/* Excerpt */}
-          {article.excerpt && (
-            <p className="text-sm text-gray-400 italic">{article.excerpt}</p>
-          )}
-
-          {/* Trend source */}
-          <p className="text-xs text-gray-600">
-            Trend origen: <span className="text-gray-400">{article.sourceTrend}</span>
-          </p>
-
-          {/* Scores por red */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {NETWORKS.map(({ key, label }) => {
-              const s = article.scores[key as keyof typeof article.scores];
-              return (
-                <div key={key} className="bg-gray-800 rounded-lg p-3">
-                  <p className="text-xs font-medium text-gray-400 mb-2">{label}</p>
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-xs">
-                      <span className="text-gray-500">Contenido</span>
-                      <span className={`font-bold ${scoreColor(s.content)}`}>{s.content}</span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-gray-500">Momento</span>
-                      <span className={`font-bold ${scoreColor(s.moment)}`}>{s.moment}</span>
-                    </div>
-                  </div>
-                  <div className="mt-2">
-                    <span className={`text-xs px-2 py-0.5 rounded border ${RECOMMENDATION_STYLES[s.recommendation] || RECOMMENDATION_STYLES.NO_PUBLICAR}`}>
-                      {s.recommendation.replace('_', ' ')}
-                    </span>
-                  </div>
-                  {!s.viable && (
-                    <p className="text-xs text-gray-600 mt-1">No viable (tiempo)</p>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Link a Ghost */}
+        {/* Botones */}
+        <div className="flex gap-2 flex-shrink-0">
+          <button
+            onClick={() => toggleTab('scores')}
+            className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${tab === 'scores' ? 'bg-blue-900 border-blue-700 text-blue-300' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'}`}
+          >
+            Scores
+          </button>
+          <button
+            onClick={() => toggleTab('copy')}
+            className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${tab === 'copy' ? 'bg-purple-900 border-purple-700 text-purple-300' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'}`}
+          >
+            Copy
+          </button>
           {article.ghostUrl && (
             <a
               href={article.ghostUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors"
+              className="text-xs px-3 py-1.5 rounded-lg border bg-gray-800 border-gray-700 text-gray-400 hover:text-white transition-colors"
             >
-              Ver nota en Ghost →
+              Ghost ↗
             </a>
+          )}
+        </div>
+      </div>
+
+      {/* Panel: Scores */}
+      {tab === 'scores' && (
+        <div className="border-t border-gray-800 p-4">
+          <p className="text-xs text-gray-500 mb-3">
+            Trend: <span className="text-gray-400">{article.sourceTrend}</span>
+            {article.excerpt && <span className="ml-3 italic">{article.excerpt}</span>}
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {NETWORKS.map(({ key, label, emoji }) => {
+              const s = article.scores[key];
+              return (
+                <div key={key} className="bg-gray-800 rounded-lg p-3">
+                  <p className="text-xs font-medium text-gray-300 mb-3">{emoji} {label}</p>
+
+                  <div className="space-y-2">
+                    <div>
+                      <div className="flex justify-between text-xs mb-0.5">
+                        <span className="text-gray-500">Contenido</span>
+                        <span className={`font-bold ${scoreColor(s.content)}`}>{s.content}</span>
+                      </div>
+                      <ScoreBar value={s.content} />
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-xs mb-0.5">
+                        <span className="text-gray-500">Momento</span>
+                        <span className={`font-bold ${scoreColor(s.moment)}`}>{s.moment}</span>
+                      </div>
+                      <ScoreBar value={s.moment} />
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex flex-col gap-1">
+                    <span className={`text-xs px-2 py-0.5 rounded border text-center ${RECOMMENDATION_STYLES[s.recommendation] || RECOMMENDATION_STYLES.NO_PUBLICAR}`}>
+                      {s.recommendation.replace('_', ' ')}
+                    </span>
+                    {!s.viable && (
+                      <span className="text-xs text-gray-600 text-center">Sin tiempo de producción</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Explicación */}
+          <div className="mt-3 text-xs text-gray-600 border-t border-gray-800 pt-3">
+            <span className="font-medium text-gray-500">Cómo se calcula: </span>
+            Contenido = categoría del tema × peso por red + bonus de formato (breaking/video) · Momento = hora del día + día de semana + disponibilidad de parrilla
+          </div>
+        </div>
+      )}
+
+      {/* Panel: Copy */}
+      {tab === 'copy' && (
+        <div className="border-t border-gray-800 p-4">
+          {article.copy ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {NETWORKS.map(({ key, label, emoji }) => (
+                <div key={key}>
+                  <p className="text-xs font-medium text-gray-400 mb-2">{emoji} {label}</p>
+                  <CopyBlock
+                    text={article.copy![key]}
+                    hashtags={article.hashtags?.[key]}
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500 text-center py-4">
+              Esta nota fue generada antes de la actualización. Las nuevas notas incluirán copy.
+            </p>
           )}
         </div>
       )}
