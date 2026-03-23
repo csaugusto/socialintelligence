@@ -1,0 +1,24 @@
+{
+  "name": "social-intelligence",
+  "version": "1.0.0",
+  "description": "> Sistema de análisis editorial y recomendación de publicación en redes sociales, impulsado por datos históricos de la redacción y validación mediante IA generativa.",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "pipeline": "node src/pipeline.js"
+  },
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "axios": "^1.13.6",
+    "dotenv": "^17.3.1",
+    "groq-sdk": "^1.1.1",
+    "node-cron": "^4.2.1",
+    "pg": "^8.20.0",
+    "rss-parser": "^3.13.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}
