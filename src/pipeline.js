@@ -1,7 +1,6 @@
 require('dotenv').config();
 const trends = require('./trends');
 const generator = require('./generator');
-const images = require('./images');
 const scorer = require('./scorer');
 const publisher = require('./publisher');
 const db = require('./db');
@@ -31,21 +30,16 @@ async function run() {
       return;
     }
 
-    // 3. Buscar imagen
-    console.log('[Pipeline] 3/5 Buscando imagen...');
-    const image = await images.fetch(nota);
-    if (image) console.log(`[Pipeline] Imagen encontrada: ${image.url}`);
-
-    // 4. Calcular score de publicación en redes
-    console.log('[Pipeline] 4/5 Calculando scores...');
+    // 3. Calcular score de publicación en redes
+    console.log('[Pipeline] 3/4 Calculando scores...');
     const scores = scorer.score(nota);
 
-    // 5. Publicar en Ghost
-    console.log('[Pipeline] 5/5 Publicando en Ghost...');
-    const ghostPost = await publisher.publish(nota, scores, image);
+    // 4. Publicar en Ghost
+    console.log('[Pipeline] 4/4 Publicando en Ghost...');
+    const ghostPost = await publisher.publish(nota, scores);
 
-    // 5. Guardar en DB
-    await db.saveArticle({ nota, scores, ghostPost, image });
+    // Guardar en DB
+    await db.saveArticle({ nota, scores, ghostPost });
 
     console.log(`[Pipeline] Nota publicada: "${nota.title}"`);
     console.log(`[Pipeline] Scores → IG: ${scores.instagram.content} | X: ${scores.x.content} | FB: ${scores.facebook.content} | TK: ${scores.tiktok.content}`);

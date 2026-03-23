@@ -44,7 +44,6 @@ type Article = {
     tiktok: string[];
   };
   ghostUrl: string | null;
-  image: { url: string } | null;
   createdAt: string;
 };
 
@@ -224,11 +223,17 @@ function ArticleCard({ article }: { article: Article }) {
     <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
       {/* Row principal */}
       <div className="flex items-center gap-4 p-4">
-        {article.image ? (
-          <img src={article.image.url} alt="" className="w-14 h-14 rounded-lg object-cover flex-shrink-0" />
-        ) : (
-          <div className="w-14 h-14 rounded-lg bg-gray-800 flex-shrink-0" />
-        )}
+        <div className={`w-2 self-stretch rounded-full flex-shrink-0 ${
+          article.category === 'seguridad' ? 'bg-red-600' :
+          article.category === 'politica' ? 'bg-blue-600' :
+          article.category === 'economia' ? 'bg-yellow-600' :
+          article.category === 'deportes' ? 'bg-green-600' :
+          article.category === 'entretenimiento' ? 'bg-pink-600' :
+          article.category === 'tecnologia' ? 'bg-cyan-600' :
+          article.category === 'salud' ? 'bg-emerald-600' :
+          article.category === 'cultura' ? 'bg-purple-600' :
+          'bg-gray-600'
+        }`} />
 
         <div className="flex-1 min-w-0">
           <p className="font-medium text-sm leading-tight truncate">{article.title}</p>
