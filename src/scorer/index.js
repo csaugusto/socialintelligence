@@ -12,7 +12,7 @@ const CATEGORY_WEIGHTS = {
   default:         [32, 38, 34, 30],
 };
 
-// Pesos de hora por red (factor 0.0–1.0)
+// Peaks de audiencia por hora (factor 0.0–1.0)
 const HOUR_FACTORS = {
   instagram: { 12: 1.00, 11: 0.95, 20: 0.85, 13: 0.80, 19: 0.78 },
   x:         { 15: 1.00, 18: 0.95, 21: 0.88, 12: 0.80, 17: 0.78 },
@@ -34,9 +34,6 @@ const PRODUCTION_TIME = { instagram: 20, x: 2, facebook: 15, tiktok: 120 };
 // Ventana de relevancia por decayType en horas
 const DECAY_WINDOW = { INMEDIATA: 1, CORTA: 4, NORMAL: 12, EVERGREEN: 48 };
 
-/**
- * Calcula Score de Contenido y Score de Momento para cada red.
- */
 function score(nota) {
   const now = new Date();
   const hour = now.getHours();
@@ -50,9 +47,10 @@ function score(nota) {
     const moment = calcMomentScore(net, hour, day);
     const viable = isViable(nota.decayType, net);
     const urgency = getUrgency(nota.decayType, net);
-    const recommendation = getRecommendation(content, moment, viable);
+    const nextPeak = getNextPeak(net, hour);
+    const recommendation = getRecommendation(content, moment, viable, urgency, nextPeak);
 
-    result[net] = { content, moment, viable, urgency, recommendation };
+    result[net] = { content, moment, viable, urgency, nextPeak, recommendation };
   }
 
   return result;
@@ -61,16 +59,21 @@ function score(nota) {
 function calcContentScore(nota, net) {
   const idx = ['instagram', 'x', 'facebook', 'tiktok'].indexOf(net);
   const catWeights = CATEGORY_WEIGHTS[nota.category] || CATEGORY_WEIGHTS.default;
-  const categoryScore = catWeights[idx];
 
-  // Factor formato/contexto
+  // Factor 1: Categoría (50 pts máx)
+  const categoryPts = catWeights[idx] * 0.50;
+
+  // Factor 2: Trending (30 pts máx) — todas las notas vienen de un trend detectado
+  // Damos 80% del máximo como base (nota fue seleccionada porque está trending)
+  const trendingPts = 30 * 0.80;
+
+  // Factor 3: Formato/Contexto (20 pts máx)
   let formatBonus = 0;
   if (nota.isBreaking) formatBonus += net === 'x' ? 15 : net === 'tiktok' ? -10 : net === 'instagram' ? 5 : 3;
   if (nota.hasVideo)   formatBonus += net === 'tiktok' ? 8 : net === 'instagram' ? 6 : net === 'facebook' ? 4 : 2;
   formatBonus = Math.max(-20, Math.min(20, formatBonus));
 
-  // Sin IA disponible: categoría 50%, trending 30%, formato 20%
-  const total = (categoryScore * 0.50) + formatBonus;
+  const total = categoryPts + trendingPts + formatBonus;
   return Math.round(Math.min(100, Math.max(0, total)));
 }
 
@@ -81,8 +84,7 @@ function calcMomentScore(net, hour, day) {
 
   const peakScore = Math.round(hourFactor * 60);
   const dayScore = Math.round(dayMultiplier * 25);
-  // Asumimos slot libre (+15) hasta que tengamos DB de parrilla
-  const slotScore = 15;
+  const slotScore = 15; // asumimos slot libre
 
   return Math.min(100, peakScore + dayScore + slotScore);
 }
@@ -90,8 +92,26 @@ function calcMomentScore(net, hour, day) {
 function getClosestHourFactor(hourFactors, hour) {
   const hours = Object.keys(hourFactors).map(Number);
   const closest = hours.reduce((a, b) => Math.abs(b - hour) < Math.abs(a - hour) ? b : a);
-  // Penalizar levemente por no ser el horario exacto
   return hourFactors[closest] * 0.85;
+}
+
+/**
+ * Devuelve el próximo horario de peak para la red, después de la hora actual.
+ * Si no hay peaks hoy, devuelve el mejor de mañana.
+ */
+function getNextPeak(net, currentHour) {
+  const peaks = Object.entries(HOUR_FACTORS[net])
+    .sort((a, b) => b[1] - a[1]) // ordenar por factor desc
+    .map(([h]) => parseInt(h));
+
+  // Buscar el siguiente peak que aún no pasó hoy
+  const nextToday = peaks.find(h => h > currentHour);
+  if (nextToday !== undefined) {
+    return { hour: nextToday, label: `${String(nextToday).padStart(2, '0')}:00 hoy` };
+  }
+
+  // Si ya pasaron todos, el mejor peak es mañana
+  return { hour: peaks[0], label: `${String(peaks[0]).padStart(2, '0')}:00 mañana` };
 }
 
 function isViable(decayType, net) {
@@ -101,17 +121,42 @@ function isViable(decayType, net) {
 }
 
 function getUrgency(decayType, net) {
-  if (decayType === 'INMEDIATA') return net === 'tiktok' ? 'NO_PUBLICAR' : 'AHORA';
-  if (decayType === 'CORTA') return net === 'tiktok' ? 'NO_PUBLICAR' : 'PROXIMO_PEAK';
+  if (decayType === 'INMEDIATA') return net === 'tiktok' ? 'NO_APLICA' : 'AHORA';
+  if (decayType === 'CORTA') return net === 'tiktok' ? 'NO_APLICA' : 'PROXIMO_PEAK';
   return 'MEJOR_PEAK';
 }
 
-function getRecommendation(content, moment, viable) {
-  if (!viable) return 'NO_PUBLICAR';
-  if (content >= 70) return 'PUBLICAR';
-  if (content >= 55) return 'CONSIDERAR';
-  if (content >= 35) return 'ESPERAR';
-  return 'NO_PUBLICAR';
+/**
+ * Lógica de recomendación:
+ * - El contenido decide SI publicar en esta red
+ * - El momento decide CUÁNDO publicar
+ */
+function getRecommendation(content, moment, viable, urgency, nextPeak) {
+  if (!viable || urgency === 'NO_APLICA') {
+    return { action: 'NO_APLICA', label: 'No aplica', detail: 'Tiempo de producción mayor a vida útil de la nota' };
+  }
+
+  if (content < 35) {
+    return { action: 'NO_APLICA', label: 'No es su red', detail: 'Esta categoría no rinde bien en esta plataforma' };
+  }
+
+  if (urgency === 'AHORA') {
+    return { action: 'AHORA', label: 'Publicar ahora', detail: 'Nota de urgencia inmediata' };
+  }
+
+  if (content >= 55 && moment >= 70) {
+    return { action: 'AHORA', label: 'Publicar ahora', detail: 'Buen contenido y momento ideal' };
+  }
+
+  if (content >= 55 && moment < 70) {
+    return { action: 'PROGRAMAR', label: `Publicar a las ${nextPeak.label}`, detail: 'Espera el próximo peak de audiencia' };
+  }
+
+  if (content >= 35 && moment >= 70) {
+    return { action: 'CONSIDERAR', label: 'Considerar ahora', detail: 'El momento es bueno, el contenido podría rendir mejor en otra red' };
+  }
+
+  return { action: 'PROGRAMAR', label: `Publicar a las ${nextPeak.label}`, detail: 'Espera el próximo peak para maximizar alcance' };
 }
 
 module.exports = { score };

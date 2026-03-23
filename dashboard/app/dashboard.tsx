@@ -3,12 +3,19 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+type Recommendation = {
+  action: 'AHORA' | 'PROGRAMAR' | 'CONSIDERAR' | 'NO_APLICA';
+  label: string;
+  detail: string;
+};
+
 type NetworkScore = {
   content: number;
   moment: number;
   viable: boolean;
   urgency: string;
-  recommendation: string;
+  nextPeak: { hour: number; label: string };
+  recommendation: Recommendation;
 };
 
 type Article = {
@@ -49,10 +56,10 @@ const NETWORKS = [
 ];
 
 const RECOMMENDATION_STYLES: Record<string, string> = {
-  PUBLICAR: 'bg-green-900 text-green-300 border-green-800',
+  AHORA:      'bg-green-900 text-green-300 border-green-800',
+  PROGRAMAR:  'bg-blue-900 text-blue-300 border-blue-800',
   CONSIDERAR: 'bg-yellow-900 text-yellow-300 border-yellow-800',
-  ESPERAR: 'bg-orange-900 text-orange-300 border-orange-800',
-  NO_PUBLICAR: 'bg-gray-800 text-gray-500 border-gray-700',
+  NO_APLICA:  'bg-gray-800 text-gray-500 border-gray-700',
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -134,7 +141,7 @@ export default function Dashboard() {
     new Date(a.createdAt).toDateString() === new Date().toDateString()
   );
   const toPublish = today.filter(a =>
-    Object.values(a.scores).some(s => s.recommendation === 'PUBLICAR')
+    Object.values(a.scores).some(s => s.recommendation?.action === 'AHORA')
   );
 
   return (
@@ -306,11 +313,11 @@ function ArticleCard({ article }: { article: Article }) {
                   </div>
 
                   <div className="mt-3 flex flex-col gap-1">
-                    <span className={`text-xs px-2 py-0.5 rounded border text-center ${RECOMMENDATION_STYLES[s.recommendation] || RECOMMENDATION_STYLES.NO_PUBLICAR}`}>
-                      {s.recommendation.replace('_', ' ')}
+                    <span className={`text-xs px-2 py-1 rounded border text-center font-medium ${RECOMMENDATION_STYLES[s.recommendation?.action] || RECOMMENDATION_STYLES.NO_APLICA}`}>
+                      {s.recommendation?.label || '—'}
                     </span>
-                    {!s.viable && (
-                      <span className="text-xs text-gray-600 text-center">Sin tiempo de producción</span>
+                    {s.recommendation?.detail && (
+                      <span className="text-xs text-gray-600 text-center leading-tight">{s.recommendation.detail}</span>
                     )}
                   </div>
                 </div>
