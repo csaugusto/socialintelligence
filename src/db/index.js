@@ -1,77 +1,60 @@
-/**
- * Capa de base de datos.
- * Por ahora opera en memoria para desarrollo local sin PostgreSQL.
- * Cuando DATABASE_URL esté configurado, usa pg.
- */
+const path = require('path');
+const fs = require('fs');
 
-const { Pool } = require('pg');
+const DATA_FILE = path.join(__dirname, '../../data/articles.json');
 
-let pool = null;
-const inMemoryArticles = [];
-
-function getPool() {
-  if (!pool && process.env.DATABASE_URL) {
-    pool = new Pool({ connectionString: process.env.DATABASE_URL });
-  }
-  return pool;
+// Asegurar que el directorio existe
+function ensureDataDir() {
+  const dir = path.dirname(DATA_FILE);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
-async function saveArticle({ nota, scores, ghostPost }) {
+function readAll() {
+  ensureDataDir();
+  if (!fs.existsSync(DATA_FILE)) return [];
+  try {
+    return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+  } catch {
+    return [];
+  }
+}
+
+function writeAll(articles) {
+  ensureDataDir();
+  fs.writeFileSync(DATA_FILE, JSON.stringify(articles, null, 2));
+}
+
+async function saveArticle({ nota, scores, ghostPost, image }) {
+  const articles = readAll();
   const record = {
+    id: Date.now().toString(),
     title: nota.title,
+    excerpt: nota.excerpt,
     category: nota.category,
     decayType: nota.decayType,
     sourceTrend: nota.sourceTrend,
+    tags: nota.tags,
     scores,
-    ghostId: ghostPost?.id,
-    ghostUrl: ghostPost?.url,
+    ghostId: ghostPost?.id || null,
+    ghostUrl: ghostPost?.url || null,
+    image: image || null,
     createdAt: new Date().toISOString(),
   };
-
-  const db = getPool();
-  if (!db) {
-    inMemoryArticles.push(record);
-    return record;
-  }
-
-  const { rows } = await db.query(
-    `INSERT INTO articles (title, category, decay_type, source_trend, scores, ghost_id, ghost_url, created_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, NOW()) RETURNING *`,
-    [nota.title, nota.category, nota.decayType, nota.sourceTrend, JSON.stringify(scores), ghostPost?.id, ghostPost?.url]
-  );
-  return rows[0];
+  articles.unshift(record); // más recientes primero
+  // Mantener máximo 200 artículos en el archivo
+  writeAll(articles.slice(0, 200));
+  return record;
 }
 
-/**
- * Devuelve keywords de notas publicadas en las últimas N horas.
- * Evita cubrir el mismo trend dos veces.
- */
 async function getRecentKeywords(hours = 6) {
-  const db = getPool();
-  if (!db) {
-    const cutoff = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
-    return inMemoryArticles
-      .filter(a => a.createdAt > cutoff)
-      .map(a => a.sourceTrend);
-  }
-
-  const { rows } = await db.query(
-    `SELECT source_trend FROM articles WHERE created_at > NOW() - INTERVAL '${hours} hours'`
-  );
-  return rows.map(r => r.source_trend);
+  const cutoff = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+  return readAll()
+    .filter(a => a.createdAt > cutoff)
+    .map(a => a.sourceTrend);
 }
 
-async function getRecentArticles(limit = 20) {
-  const db = getPool();
-  if (!db) {
-    return inMemoryArticles.slice(-limit).reverse();
-  }
-
-  const { rows } = await db.query(
-    `SELECT * FROM articles ORDER BY created_at DESC LIMIT $1`,
-    [limit]
-  );
-  return rows;
+async function getRecentArticles(limit = 50) {
+  return readAll().slice(0, limit);
 }
 
 module.exports = { saveArticle, getRecentKeywords, getRecentArticles };
