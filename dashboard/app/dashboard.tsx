@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 type Recommendation = {
   action: 'AHORA' | 'PROGRAMAR' | 'CONSIDERAR' | 'NO_APLICA';
@@ -152,6 +153,9 @@ export default function Dashboard() {
           <p className="text-xs text-gray-500">Panel editorial</p>
         </div>
         <div className="flex items-center gap-4">
+          <Link href="/parrilla" className="text-xs text-gray-400 hover:text-white transition-colors">
+            📅 Parrilla
+          </Link>
           <button onClick={loadArticles} className="text-xs text-gray-400 hover:text-white transition-colors">
             ↻ Actualizar
           </button>
@@ -200,7 +204,7 @@ export default function Dashboard() {
         ) : (
           <div className="space-y-3">
             {articles.map(article => (
-              <ArticleCard key={article.id} article={article} />
+              <ArticleCard key={article.id} article={article} onReanalyzed={loadArticles} />
             ))}
           </div>
         )}
@@ -209,14 +213,27 @@ export default function Dashboard() {
   );
 }
 
-function ArticleCard({ article }: { article: Article }) {
+function ArticleCard({ article, onReanalyzed }: { article: Article; onReanalyzed: () => void }) {
   const [tab, setTab] = useState<'scores' | 'copy' | null>(null);
+  const [reanalyzing, setReanalyzing] = useState(false);
+  const [showParrillaModal, setShowParrillaModal] = useState(false);
 
   const time = new Date(article.createdAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
   const date = new Date(article.createdAt).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
 
   function toggleTab(t: 'scores' | 'copy') {
     setTab(prev => prev === t ? null : t);
+  }
+
+  async function reanalyze() {
+    setReanalyzing(true);
+    await fetch('/api/articles/reanalyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: article.id }),
+    });
+    setReanalyzing(false);
+    onReanalyzed();
   }
 
   return (
@@ -260,26 +277,21 @@ function ArticleCard({ article }: { article: Article }) {
         </div>
 
         {/* Botones */}
-        <div className="flex gap-2 flex-shrink-0">
-          <button
-            onClick={() => toggleTab('scores')}
-            className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${tab === 'scores' ? 'bg-blue-900 border-blue-700 text-blue-300' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'}`}
-          >
+        <div className="flex gap-2 flex-shrink-0flex-wrap">
+          <button onClick={() => toggleTab('scores')} className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${tab === 'scores' ? 'bg-blue-900 border-blue-700 text-blue-300' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'}`}>
             Scores
           </button>
-          <button
-            onClick={() => toggleTab('copy')}
-            className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${tab === 'copy' ? 'bg-purple-900 border-purple-700 text-purple-300' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'}`}
-          >
+          <button onClick={() => toggleTab('copy')} className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${tab === 'copy' ? 'bg-purple-900 border-purple-700 text-purple-300' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'}`}>
             Copy
           </button>
+          <button onClick={reanalyze} disabled={reanalyzing} className="text-xs px-3 py-1.5 rounded-lg border bg-gray-800 border-gray-700 text-gray-400 hover:text-white disabled:opacity-50 transition-colors">
+            {reanalyzing ? '...' : '↻'}
+          </button>
+          <button onClick={() => setShowParrillaModal(true)} className="text-xs px-3 py-1.5 rounded-lg border bg-green-900 border-green-700 text-green-300 hover:bg-green-800 transition-colors">
+            + Parrilla
+          </button>
           {article.ghostUrl && (
-            <a
-              href={article.ghostUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs px-3 py-1.5 rounded-lg border bg-gray-800 border-gray-700 text-gray-400 hover:text-white transition-colors"
-            >
+            <a href={article.ghostUrl} target="_blank" rel="noopener noreferrer" className="text-xs px-3 py-1.5 rounded-lg border bg-gray-800 border-gray-700 text-gray-400 hover:text-white transition-colors">
               Ghost ↗
             </a>
           )}
@@ -360,6 +372,117 @@ function ArticleCard({ article }: { article: Article }) {
           )}
         </div>
       )}
+
+      {/* Modal parrilla */}
+      {showParrillaModal && (
+        <ParrillaModal article={article} onClose={() => setShowParrillaModal(false)} />
+      )}
+    </div>
+  );
+}
+
+function ParrillaModal({ article, onClose }: { article: Article; onClose: () => void }) {
+  const [network, setNetwork] = useState('instagram');
+  const [scheduledFor, setScheduledFor] = useState(() => {
+    const d = new Date();
+    d.setMinutes(0, 0, 0);
+    d.setHours(d.getHours() + 1);
+    return d.toISOString().slice(0, 16);
+  });
+  const [saving, setSaving] = useState(false);
+  const [conflict, setConflict] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const netScore = article.scores[network as keyof typeof article.scores];
+  const suggestedTime = netScore?.nextPeak?.label;
+
+  async function handleSave() {
+    setSaving(true);
+    const res = await fetch('/api/parrilla', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        articleId: article.id,
+        articleTitle: article.title,
+        network,
+        scheduledFor: new Date(scheduledFor).toISOString(),
+        copy: article.copy?.[network as keyof typeof article.copy] || null,
+        hashtags: article.hashtags?.[network as keyof typeof article.hashtags] || [],
+      }),
+    });
+    const data = await res.json();
+    setSaving(false);
+    if (data.conflicts?.length > 0) {
+      setConflict(true);
+    } else {
+      setSaved(true);
+      setTimeout(onClose, 1200);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold">Agregar a parrilla</h3>
+          <button onClick={onClose} className="text-gray-500 hover:text-white text-xl">×</button>
+        </div>
+
+        <p className="text-sm text-gray-400 mb-4 truncate">{article.title}</p>
+
+        {saved ? (
+          <p className="text-center text-green-400 py-4">✓ Agregado a la parrilla</p>
+        ) : (
+          <>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs text-gray-400 mb-2 block">Red social</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {NETWORKS.map(({ key, label, emoji }) => (
+                    <button
+                      key={key}
+                      onClick={() => setNetwork(key)}
+                      className={`text-sm px-3 py-2 rounded-lg border transition-colors ${network === key ? 'bg-blue-900 border-blue-600 text-blue-200' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'}`}
+                    >
+                      {emoji} {label}
+                    </button>
+                  ))}
+                </div>
+                {suggestedTime && (
+                  <p className="text-xs text-blue-400 mt-2">💡 Score sugiere: {suggestedTime}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="text-xs text-gray-400 mb-1 block">Fecha y hora</label>
+                <input
+                  type="datetime-local"
+                  value={scheduledFor}
+                  onChange={e => { setScheduledFor(e.target.value); setConflict(false); }}
+                  className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                />
+              </div>
+            </div>
+
+            {conflict && (
+              <div className="mt-3 bg-red-950 border border-red-800 rounded-lg px-3 py-2">
+                <p className="text-red-300 text-xs font-medium">⚠️ Conflicto de horario</p>
+                <p className="text-red-500 text-xs">Ya hay un post programado en {NETWORKS.find(n => n.key === network)?.label} a esa hora. Se guardó igual pero el alcance de ambos se verá afectado.</p>
+                <button onClick={onClose} className="text-xs text-red-300 underline mt-1">Entendido, cerrar</button>
+              </div>
+            )}
+
+            <div className="flex gap-2 mt-5">
+              <button onClick={onClose} className="flex-1 text-sm py-2 rounded-lg border border-gray-700 text-gray-400 hover:text-white transition-colors">
+                Cancelar
+              </button>
+              <button onClick={handleSave} disabled={saving} className="flex-1 text-sm py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white transition-colors">
+                {saving ? 'Guardando...' : 'Agregar'}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

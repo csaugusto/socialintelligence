@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(node src/pipeline.js)"
+      "Bash(node src/pipeline.js)",
+      "Bash(npx tsc:*)"
     ]
   }
 }

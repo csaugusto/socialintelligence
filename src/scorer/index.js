@@ -86,7 +86,7 @@ function score(nota) {
 
   for (const net of ['instagram', 'x', 'facebook', 'tiktok']) {
     const content        = calcContentScore(nota, net);
-    const moment         = calcMomentScore(net, hour, day);
+    const moment         = calcMomentScore(net, hour, day, now);
     const viable         = isViable(nota.decayType, net);
     const urgency        = getUrgency(nota.decayType, net);
     const nextPeak       = getNextPeak(net, hour);
@@ -133,14 +133,24 @@ function calcContentScore(nota, net) {
 // SCORE DE MOMENTO (0–100)
 // Factores: hora (60 pts) + día (25 pts) + slot disponible (15 pts)
 // ---------------------------------------------------------------------------
-function calcMomentScore(net, hour, day) {
+function calcMomentScore(net, hour, day, now) {
   const hourFactors = HOUR_FACTORS[net];
   const hourFactor  = hourFactors[hour] ?? getClosestHourFactor(hourFactors, hour);
   const dayMult     = DAY_MULTIPLIERS[net][day];
 
   const peakPts = Math.round(hourFactor * 60);
   const dayPts  = Math.round(dayMult * 25);
-  const slotPts = 15; // asumimos parrilla libre hasta tener DB de calendar
+
+  // Penalización por saturación de parrilla en este slot
+  let slotPts = 15;
+  try {
+    const { getSlotCount } = require('../db');
+    const isoHour = now.toISOString();
+    const count = getSlotCount(net, isoHour);
+    if (count === 1) slotPts = 10;
+    else if (count === 2) slotPts = 5;
+    else if (count >= 3) slotPts = 0;
+  } catch { /* si falla, asumimos slot libre */ }
 
   return Math.min(100, peakPts + dayPts + slotPts);
 }
