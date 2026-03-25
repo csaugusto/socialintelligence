@@ -15,10 +15,10 @@ type ParrillaItem = {
 };
 
 const NETWORKS = [
-  { key: 'instagram', label: 'Instagram', emoji: '📸', color: 'pink' },
-  { key: 'x',        label: 'X / Twitter', emoji: '𝕏',  color: 'sky' },
-  { key: 'facebook', label: 'Facebook',  emoji: '👥', color: 'blue' },
-  { key: 'tiktok',   label: 'TikTok',    emoji: '🎬', color: 'violet' },
+  { key: 'instagram', label: 'Instagram', color: 'pink' },
+  { key: 'x',        label: 'X / Twitter', color: 'sky' },
+  { key: 'facebook', label: 'Facebook',  color: 'blue' },
+  { key: 'tiktok',   label: 'TikTok',    color: 'violet' },
 ];
 
 const NET_COLORS: Record<string, string> = {
@@ -91,7 +91,7 @@ export default function ParrillaView() {
       {/* Alerta de conflictos */}
       {hasConflicts && (
         <div className="mx-6 mt-4 bg-red-950 border border-red-800 rounded-xl px-4 py-3 flex items-center gap-3">
-          <span className="text-red-400 text-lg">⚠️</span>
+          <span className="text-red-400 text-lg font-bold">!</span>
           <div>
             <p className="text-red-300 text-sm font-medium">Conflictos detectados</p>
             <p className="text-red-500 text-xs">Hay posts programados en la misma red y hora. El alcance de ambos se verá afectado.</p>
@@ -123,7 +123,7 @@ export default function ParrillaView() {
                   <div className={`flex items-center gap-3 mb-3 ${slotHasConflict ? 'text-red-400' : 'text-gray-400'}`}>
                     <div className={`h-px flex-1 ${slotHasConflict ? 'bg-red-900' : 'bg-gray-800'}`} />
                     <span className="text-sm font-medium whitespace-nowrap">
-                      {slotHasConflict && '⚠️ '}
+                      {slotHasConflict && '! '}
                       {formatDate(slotKey)} · {formatHour(slotKey)}
                     </span>
                     <div className={`h-px flex-1 ${slotHasConflict ? 'bg-red-900' : 'bg-gray-800'}`} />
@@ -142,11 +142,11 @@ export default function ParrillaView() {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-1">
                                 <span className={`text-xs font-medium ${NET_TEXT[item.network]}`}>
-                                  {NETWORKS.find(n => n.key === item.network)?.emoji} {NETWORKS.find(n => n.key === item.network)?.label}
+                                  {NETWORKS.find(n => n.key === item.network)?.label}
                                 </span>
                                 {hasConflict && (
                                   <span className="text-xs bg-red-900 text-red-300 border border-red-700 px-2 py-0.5 rounded-full">
-                                    ⚠️ Conflicto
+                                    Conflicto
                                   </span>
                                 )}
                               </div>

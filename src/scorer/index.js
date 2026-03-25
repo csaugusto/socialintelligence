@@ -215,11 +215,11 @@ function getRecommendation(content, moment, viable, urgency, nextPeak) {
   }
 
   if (urgency === 'AHORA') {
-    return { action: 'AHORA', label: 'Publicar ahora', detail: 'Nota urgente — no esperes' };
+    return { action: 'AHORA', label: 'Sí, publicar', detail: 'Nota urgente — no esperes' };
   }
 
   if (content >= 60 && moment >= 70) {
-    return { action: 'AHORA', label: 'Publicar ahora', detail: 'Buen contenido y momento ideal' };
+    return { action: 'AHORA', label: 'Sí, publicar', detail: 'Buen contenido y momento ideal' };
   }
 
   if (content >= 60 && moment < 70) {
@@ -233,7 +233,7 @@ function getRecommendation(content, moment, viable, urgency, nextPeak) {
   if (content >= 38 && moment >= 70) {
     return {
       action: 'CONSIDERAR',
-      label: 'Considerar ahora',
+      label: 'Considerar',
       detail: 'El momento es bueno aunque el contenido encaja mejor en otra red',
     };
   }

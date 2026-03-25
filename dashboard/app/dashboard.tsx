@@ -25,6 +25,8 @@ type Article = {
   excerpt: string;
   category: string;
   decayType: string;
+  isBreaking?: boolean;
+  hasVideo?: boolean;
   sourceTrend: string;
   scores: {
     instagram: NetworkScore;
@@ -49,16 +51,16 @@ type Article = {
 };
 
 const NETWORKS = [
-  { key: 'instagram' as const, label: 'Instagram', short: 'IG', emoji: '📸' },
-  { key: 'x' as const, label: 'X / Twitter', short: 'X', emoji: '𝕏' },
-  { key: 'facebook' as const, label: 'Facebook', short: 'FB', emoji: '👥' },
-  { key: 'tiktok' as const, label: 'TikTok', short: 'TK', emoji: '🎬' },
+  { key: 'instagram' as const, label: 'Instagram', short: 'IG' },
+  { key: 'x' as const, label: 'X / Twitter', short: 'X' },
+  { key: 'facebook' as const, label: 'Facebook', short: 'FB' },
+  { key: 'tiktok' as const, label: 'TikTok', short: 'TK' },
 ];
 
 const RECOMMENDATION_STYLES: Record<string, string> = {
-  AHORA:      'bg-green-900 text-green-300 border-green-800',
-  PROGRAMAR:  'bg-blue-900 text-blue-300 border-blue-800',
-  CONSIDERAR: 'bg-yellow-900 text-yellow-300 border-yellow-800',
+  AHORA:      'bg-green-900 text-green-300 border-green-700',
+  PROGRAMAR:  'bg-blue-900 text-blue-300 border-blue-700',
+  CONSIDERAR: 'bg-yellow-900 text-yellow-300 border-yellow-700',
   NO_APLICA:  'bg-gray-800 text-gray-500 border-gray-700',
 };
 
@@ -68,8 +70,14 @@ const CATEGORY_LABELS: Record<string, string> = {
   salud: 'Salud', cultura: 'Cultura', internacional: 'Internacional',
 };
 
+const CATEGORY_COLOR: Record<string, string> = {
+  seguridad: 'bg-red-600', politica: 'bg-blue-600', economia: 'bg-yellow-600',
+  deportes: 'bg-green-600', entretenimiento: 'bg-pink-600', tecnologia: 'bg-cyan-600',
+  salud: 'bg-emerald-600', cultura: 'bg-purple-600',
+};
+
 const DECAY_LABELS: Record<string, string> = {
-  INMEDIATA: '🔴 Inmediata', CORTA: '🟠 Corta', NORMAL: '🟡 Normal', EVERGREEN: '🟢 Evergreen',
+  INMEDIATA: 'Inmediata', CORTA: 'Corta', NORMAL: 'Normal', EVERGREEN: 'Evergreen',
 };
 
 function scoreColor(score: number) {
@@ -83,9 +91,34 @@ function ScoreBar({ value }: { value: number }) {
   const color = value >= 70 ? 'bg-green-500' : value >= 55 ? 'bg-yellow-500' : value >= 35 ? 'bg-orange-500' : 'bg-gray-600';
   return (
     <div className="w-full bg-gray-700 rounded-full h-1 mt-1">
-      <div className={`${color} h-1 rounded-full`} style={{ width: `${value}%` }} />
+      <div className={`${color} h-1 rounded-full transition-all`} style={{ width: `${value}%` }} />
     </div>
   );
+}
+
+function getFormat(network: string, decayType: string, hasVideo?: boolean, isBreaking?: boolean): string {
+  if (network === 'instagram') {
+    if (hasVideo) return 'Reel';
+    if (isBreaking) return 'Story + Post';
+    if (decayType === 'EVERGREEN') return 'Carrusel';
+    return 'Foto + Copy';
+  }
+  if (network === 'x') {
+    if (isBreaking) return 'Hilo';
+    if (hasVideo) return 'Tweet + Video';
+    return 'Tweet + Imagen';
+  }
+  if (network === 'facebook') {
+    if (hasVideo) return 'Video';
+    if (decayType === 'EVERGREEN') return 'Álbum (3–5 slides)';
+    return 'Post + Imagen';
+  }
+  if (network === 'tiktok') {
+    if (decayType === 'INMEDIATA') return 'Video 15–30s';
+    if (decayType === 'CORTA') return 'Video 30–60s';
+    return 'Video 45–60s';
+  }
+  return '';
 }
 
 function CopyBlock({ text, hashtags }: { text: string; hashtags?: string[] }) {
@@ -99,8 +132,8 @@ function CopyBlock({ text, hashtags }: { text: string; hashtags?: string[] }) {
   }
 
   return (
-    <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 group relative">
-      <p className="text-sm text-gray-200 leading-relaxed">{text}</p>
+    <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 relative">
+      <p className="text-sm text-gray-200 leading-relaxed pr-14">{text}</p>
       {hashtags?.length ? (
         <p className="text-xs text-blue-400 mt-1">{hashtags.join(' ')}</p>
       ) : null}
@@ -108,7 +141,7 @@ function CopyBlock({ text, hashtags }: { text: string; hashtags?: string[] }) {
         onClick={copy}
         className="absolute top-2 right-2 text-xs text-gray-500 hover:text-white bg-gray-800 hover:bg-gray-700 px-2 py-0.5 rounded transition-colors"
       >
-        {copied ? '✓ Copiado' : 'Copiar'}
+        {copied ? '✓' : 'Copiar'}
       </button>
     </div>
   );
@@ -149,12 +182,12 @@ export default function Dashboard() {
       {/* Header */}
       <header className="border-b border-gray-800 px-6 py-4 flex items-center justify-between sticky top-0 bg-gray-950 z-10">
         <div>
-          <h1 className="text-lg font-bold">Social Intelligence</h1>
+          <h1 className="text-lg font-bold tracking-tight">Social Intelligence</h1>
           <p className="text-xs text-gray-500">Panel editorial</p>
         </div>
         <div className="flex items-center gap-4">
           <Link href="/parrilla" className="text-xs text-gray-400 hover:text-white transition-colors">
-            📅 Parrilla
+            Parrilla
           </Link>
           <button onClick={loadArticles} className="text-xs text-gray-400 hover:text-white transition-colors">
             ↻ Actualizar
@@ -181,14 +214,12 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Score legend */}
-      <div className="px-6 py-3 border-b border-gray-800 flex items-center gap-6 text-xs text-gray-500">
-        <span className="font-medium text-gray-400">Scores:</span>
+      {/* Legend */}
+      <div className="px-6 py-2.5 border-b border-gray-800 flex items-center gap-5 text-xs text-gray-600">
         <span className="text-green-400">■ ≥70 Publicar</span>
         <span className="text-yellow-400">■ 55–69 Considerar</span>
         <span className="text-orange-400">■ 35–54 Esperar</span>
-        <span className="text-gray-600">■ &lt;35 No publicar</span>
-        <span className="ml-4 text-gray-600">Contenido = categoría + formato + caducidad · Momento = hora + día + disponibilidad</span>
+        <span>■ &lt;35 No publicar</span>
       </div>
 
       {/* Articles */}
@@ -214,16 +245,13 @@ export default function Dashboard() {
 }
 
 function ArticleCard({ article, onReanalyzed }: { article: Article; onReanalyzed: () => void }) {
-  const [tab, setTab] = useState<'scores' | 'copy' | null>(null);
+  const [showCopy, setShowCopy] = useState(false);
   const [reanalyzing, setReanalyzing] = useState(false);
   const [showParrillaModal, setShowParrillaModal] = useState(false);
+  const [parrillaNetwork, setParrillaNetwork] = useState('instagram');
 
   const time = new Date(article.createdAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
   const date = new Date(article.createdAt).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
-
-  function toggleTab(t: 'scores' | 'copy') {
-    setTab(prev => prev === t ? null : t);
-  }
 
   async function reanalyze() {
     setReanalyzing(true);
@@ -236,128 +264,123 @@ function ArticleCard({ article, onReanalyzed }: { article: Article; onReanalyzed
     onReanalyzed();
   }
 
+  function openParrilla(network: string) {
+    setParrillaNetwork(network);
+    setShowParrillaModal(true);
+  }
+
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-      {/* Row principal */}
-      <div className="flex items-center gap-4 p-4">
-        <div className={`w-2 self-stretch rounded-full flex-shrink-0 ${
-          article.category === 'seguridad' ? 'bg-red-600' :
-          article.category === 'politica' ? 'bg-blue-600' :
-          article.category === 'economia' ? 'bg-yellow-600' :
-          article.category === 'deportes' ? 'bg-green-600' :
-          article.category === 'entretenimiento' ? 'bg-pink-600' :
-          article.category === 'tecnologia' ? 'bg-cyan-600' :
-          article.category === 'salud' ? 'bg-emerald-600' :
-          article.category === 'cultura' ? 'bg-purple-600' :
-          'bg-gray-600'
-        }`} />
+      {/* Encabezado */}
+      <div className="flex items-start gap-3 p-4 pb-3">
+        <div className={`w-1.5 self-stretch rounded-full flex-shrink-0 mt-0.5 ${CATEGORY_COLOR[article.category] || 'bg-gray-600'}`} />
 
         <div className="flex-1 min-w-0">
-          <p className="font-medium text-sm leading-tight truncate">{article.title}</p>
+          <p className="font-semibold text-sm leading-snug">{article.title}</p>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
-            <span className="text-xs text-gray-500">{date} {time}</span>
-            <span className="text-xs bg-gray-800 text-gray-400 px-2 py-0.5 rounded-full">
-              {CATEGORY_LABELS[article.category] || article.category}
-            </span>
+            <span className="text-xs text-gray-500">{date} · {time}</span>
+            <span className="text-xs text-gray-500">·</span>
+            <span className="text-xs text-gray-400">{CATEGORY_LABELS[article.category] || article.category}</span>
+            <span className="text-xs text-gray-500">·</span>
             <span className="text-xs text-gray-500">{DECAY_LABELS[article.decayType]}</span>
+            {article.sourceTrend && (
+              <>
+                <span className="text-xs text-gray-500">·</span>
+                <span className="text-xs text-gray-600 italic truncate max-w-xs">{article.sourceTrend}</span>
+              </>
+            )}
           </div>
         </div>
 
-        {/* Scores compactos */}
-        <div className="flex gap-3 flex-shrink-0">
-          {NETWORKS.map(({ key, short }) => {
-            const s = article.scores[key];
-            return (
-              <div key={key} className="text-center w-9">
-                <p className="text-xs text-gray-500">{short}</p>
-                <p className={`text-sm font-bold ${scoreColor(s.content)}`}>{s.content}</p>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Botones */}
-        <div className="flex gap-2 flex-shrink-0flex-wrap">
-          <button onClick={() => toggleTab('scores')} className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${tab === 'scores' ? 'bg-blue-900 border-blue-700 text-blue-300' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'}`}>
-            Scores
+        {/* Acciones */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <button
+            onClick={reanalyze}
+            disabled={reanalyzing}
+            className="text-xs px-2.5 py-1.5 rounded-lg border bg-gray-800 border-gray-700 text-gray-400 hover:text-white disabled:opacity-50 transition-colors"
+          >
+            {reanalyzing ? 'Analizando...' : '↻ Re-analizar'}
           </button>
-          <button onClick={() => toggleTab('copy')} className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${tab === 'copy' ? 'bg-purple-900 border-purple-700 text-purple-300' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'}`}>
+          <button
+            onClick={() => setShowCopy(v => !v)}
+            className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${showCopy ? 'bg-purple-900 border-purple-700 text-purple-300' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'}`}
+          >
             Copy
           </button>
-          <button onClick={reanalyze} disabled={reanalyzing} className="text-xs px-3 py-1.5 rounded-lg border bg-gray-800 border-gray-700 text-gray-400 hover:text-white disabled:opacity-50 transition-colors">
-            {reanalyzing ? '...' : '↻'}
-          </button>
-          <button onClick={() => setShowParrillaModal(true)} className="text-xs px-3 py-1.5 rounded-lg border bg-green-900 border-green-700 text-green-300 hover:bg-green-800 transition-colors">
-            + Parrilla
-          </button>
           {article.ghostUrl && (
-            <a href={article.ghostUrl} target="_blank" rel="noopener noreferrer" className="text-xs px-3 py-1.5 rounded-lg border bg-gray-800 border-gray-700 text-gray-400 hover:text-white transition-colors">
+            <a
+              href={article.ghostUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs px-2.5 py-1.5 rounded-lg border bg-gray-800 border-gray-700 text-gray-400 hover:text-white transition-colors"
+            >
               Ghost ↗
             </a>
           )}
         </div>
       </div>
 
-      {/* Panel: Scores */}
-      {tab === 'scores' && (
-        <div className="border-t border-gray-800 p-4">
-          <p className="text-xs text-gray-500 mb-3">
-            Trend: <span className="text-gray-400">{article.sourceTrend}</span>
-            {article.excerpt && <span className="ml-3 italic">{article.excerpt}</span>}
-          </p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {NETWORKS.map(({ key, label, emoji }) => {
-              const s = article.scores[key];
-              return (
-                <div key={key} className="bg-gray-800 rounded-lg p-3">
-                  <p className="text-xs font-medium text-gray-300 mb-3">{emoji} {label}</p>
+      {/* Grid de redes — siempre visible */}
+      <div className="grid grid-cols-2 md:grid-cols-4 border-t border-gray-800">
+        {NETWORKS.map(({ key, label }, i) => {
+          const s = article.scores[key];
+          const format = getFormat(key, article.decayType, article.hasVideo, article.isBreaking);
+          const isLast = i === NETWORKS.length - 1;
 
-                  <div className="space-y-2">
-                    <div>
-                      <div className="flex justify-between text-xs mb-0.5">
-                        <span className="text-gray-500">Contenido</span>
-                        <span className={`font-bold ${scoreColor(s.content)}`}>{s.content}</span>
-                      </div>
-                      <ScoreBar value={s.content} />
-                    </div>
-                    <div>
-                      <div className="flex justify-between text-xs mb-0.5">
-                        <span className="text-gray-500">Momento</span>
-                        <span className={`font-bold ${scoreColor(s.moment)}`}>{s.moment}</span>
-                      </div>
-                      <ScoreBar value={s.moment} />
-                    </div>
-                  </div>
+          return (
+            <div
+              key={key}
+              className={`p-3 flex flex-col gap-2 ${!isLast ? 'border-r border-gray-800' : ''} ${i >= 2 ? 'border-t border-gray-800 md:border-t-0' : ''}`}
+            >
+              {/* Nombre red */}
+              <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">{label}</p>
 
-                  <div className="mt-3 flex flex-col gap-1">
-                    <span className={`text-xs px-2 py-1 rounded border text-center font-medium ${RECOMMENDATION_STYLES[s.recommendation?.action] || RECOMMENDATION_STYLES.NO_APLICA}`}>
-                      {s.recommendation?.label || '—'}
-                    </span>
-                    {s.recommendation?.detail && (
-                      <span className="text-xs text-gray-600 text-center leading-tight">{s.recommendation.detail}</span>
-                    )}
+              {/* Scores */}
+              <div className="space-y-1.5">
+                <div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-600">Contenido</span>
+                    <span className={`font-bold ${scoreColor(s.content)}`}>{s.content}</span>
                   </div>
+                  <ScoreBar value={s.content} />
                 </div>
-              );
-            })}
-          </div>
+                <div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-600">Momento</span>
+                    <span className={`font-bold ${scoreColor(s.moment)}`}>{s.moment}</span>
+                  </div>
+                  <ScoreBar value={s.moment} />
+                </div>
+              </div>
 
-          {/* Explicación */}
-          <div className="mt-3 text-xs text-gray-600 border-t border-gray-800 pt-3">
-            <span className="font-medium text-gray-500">Cómo se calcula: </span>
-            Contenido = categoría del tema × peso por red + bonus de formato (breaking/video) · Momento = hora del día + día de semana + disponibilidad de parrilla
-          </div>
-        </div>
-      )}
+              {/* Recomendación */}
+              <div className={`text-xs px-2 py-1 rounded border text-center font-medium ${RECOMMENDATION_STYLES[s.recommendation?.action] || RECOMMENDATION_STYLES.NO_APLICA}`}>
+                {s.recommendation?.label || '—'}
+              </div>
+
+              {/* Formato sugerido */}
+              <p className="text-xs text-gray-600 text-center">{format}</p>
+
+              {/* Acciones inline */}
+              <button
+                onClick={() => openParrilla(key)}
+                className="mt-auto text-xs py-1 rounded border border-gray-700 text-gray-500 hover:text-white hover:border-gray-500 transition-colors text-center w-full"
+              >
+                + Parrilla
+              </button>
+            </div>
+          );
+        })}
+      </div>
 
       {/* Panel: Copy */}
-      {tab === 'copy' && (
+      {showCopy && (
         <div className="border-t border-gray-800 p-4">
           {article.copy ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {NETWORKS.map(({ key, label, emoji }) => (
+              {NETWORKS.map(({ key, label }) => (
                 <div key={key}>
-                  <p className="text-xs font-medium text-gray-400 mb-2">{emoji} {label}</p>
+                  <p className="text-xs font-medium text-gray-500 mb-2 uppercase tracking-wider">{label}</p>
                   <CopyBlock
                     text={article.copy![key]}
                     hashtags={article.hashtags?.[key]}
@@ -375,26 +398,60 @@ function ArticleCard({ article, onReanalyzed }: { article: Article; onReanalyzed
 
       {/* Modal parrilla */}
       {showParrillaModal && (
-        <ParrillaModal article={article} onClose={() => setShowParrillaModal(false)} />
+        <ParrillaModal
+          article={article}
+          initialNetwork={parrillaNetwork}
+          onClose={() => setShowParrillaModal(false)}
+        />
       )}
     </div>
   );
 }
 
-function ParrillaModal({ article, onClose }: { article: Article; onClose: () => void }) {
-  const [network, setNetwork] = useState('instagram');
-  const [scheduledFor, setScheduledFor] = useState(() => {
-    const d = new Date();
-    d.setMinutes(0, 0, 0);
-    d.setHours(d.getHours() + 1);
-    return d.toISOString().slice(0, 16);
-  });
+
+function nowDateTime(): string {
+  const d = new Date();
+  d.setSeconds(0, 0);
+  return d.toISOString().slice(0, 16);
+}
+
+function peakDateTime(hour: number): string {
+  const d = new Date();
+  d.setMinutes(0, 0, 0);
+  d.setHours(hour);
+  if (d <= new Date()) d.setDate(d.getDate() + 1);
+  return d.toISOString().slice(0, 16);
+}
+
+function ParrillaModal({ article, initialNetwork = 'instagram', onClose }: {
+  article: Article;
+  initialNetwork?: string;
+  onClose: () => void;
+}) {
+  const [network, setNetwork] = useState(initialNetwork);
   const [saving, setSaving] = useState(false);
   const [conflict, setConflict] = useState(false);
   const [saved, setSaved] = useState(false);
 
   const netScore = article.scores[network as keyof typeof article.scores];
   const suggestedTime = netScore?.nextPeak?.label;
+
+  const [scheduledFor, setScheduledFor] = useState(() => {
+    const s = article.scores[initialNetwork as keyof typeof article.scores];
+    if (s?.recommendation?.action === 'AHORA') return nowDateTime();
+    return s?.nextPeak?.hour != null ? peakDateTime(s.nextPeak.hour) : nowDateTime();
+  });
+
+  function changeNetwork(net: string) {
+    setNetwork(net);
+    setConflict(false);
+    const s = article.scores[net as keyof typeof article.scores];
+    if (s?.recommendation?.action === 'AHORA') {
+      setScheduledFor(nowDateTime());
+    } else if (s?.nextPeak?.hour != null) {
+      setScheduledFor(peakDateTime(s.nextPeak.hour));
+    }
+  }
 
   async function handleSave() {
     setSaving(true);
@@ -425,7 +482,7 @@ function ParrillaModal({ article, onClose }: { article: Article; onClose: () => 
       <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold">Agregar a parrilla</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-white text-xl">×</button>
+          <button onClick={onClose} className="text-gray-500 hover:text-white text-xl leading-none">×</button>
         </div>
 
         <p className="text-sm text-gray-400 mb-4 truncate">{article.title}</p>
@@ -436,25 +493,29 @@ function ParrillaModal({ article, onClose }: { article: Article; onClose: () => 
           <>
             <div className="space-y-4">
               <div>
-                <label className="text-xs text-gray-400 mb-2 block">Red social</label>
+                <label className="text-xs text-gray-500 mb-2 block uppercase tracking-wider">Red social</label>
                 <div className="grid grid-cols-2 gap-2">
-                  {NETWORKS.map(({ key, label, emoji }) => (
+                  {NETWORKS.map(({ key, label }) => (
                     <button
                       key={key}
-                      onClick={() => setNetwork(key)}
-                      className={`text-sm px-3 py-2 rounded-lg border transition-colors ${network === key ? 'bg-blue-900 border-blue-600 text-blue-200' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'}`}
+                      onClick={() => changeNetwork(key)}
+                      className={`text-sm px-3 py-2 rounded-lg border transition-colors ${
+                        network === key
+                          ? 'bg-blue-900 border-blue-600 text-blue-200'
+                          : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'
+                      }`}
                     >
-                      {emoji} {label}
+                      {label}
                     </button>
                   ))}
                 </div>
-                {suggestedTime && (
-                  <p className="text-xs text-blue-400 mt-2">💡 Score sugiere: {suggestedTime}</p>
+                {suggestedTime && netScore?.recommendation?.action !== 'AHORA' && (
+                  <p className="text-xs text-blue-400 mt-2">Score sugiere: {suggestedTime}</p>
                 )}
               </div>
 
               <div>
-                <label className="text-xs text-gray-400 mb-1 block">Fecha y hora</label>
+                <label className="text-xs text-gray-500 mb-1 block uppercase tracking-wider">Fecha y hora</label>
                 <input
                   type="datetime-local"
                   value={scheduledFor}
@@ -466,17 +527,26 @@ function ParrillaModal({ article, onClose }: { article: Article; onClose: () => 
 
             {conflict && (
               <div className="mt-3 bg-red-950 border border-red-800 rounded-lg px-3 py-2">
-                <p className="text-red-300 text-xs font-medium">⚠️ Conflicto de horario</p>
-                <p className="text-red-500 text-xs">Ya hay un post programado en {NETWORKS.find(n => n.key === network)?.label} a esa hora. Se guardó igual pero el alcance de ambos se verá afectado.</p>
+                <p className="text-red-300 text-xs font-medium">Conflicto de horario</p>
+                <p className="text-red-500 text-xs mt-0.5">
+                  Ya hay un post en {NETWORKS.find(n => n.key === network)?.label} a esa hora. Se guardó de todas formas pero el alcance de ambos se verá afectado.
+                </p>
                 <button onClick={onClose} className="text-xs text-red-300 underline mt-1">Entendido, cerrar</button>
               </div>
             )}
 
             <div className="flex gap-2 mt-5">
-              <button onClick={onClose} className="flex-1 text-sm py-2 rounded-lg border border-gray-700 text-gray-400 hover:text-white transition-colors">
+              <button
+                onClick={onClose}
+                className="flex-1 text-sm py-2 rounded-lg border border-gray-700 text-gray-400 hover:text-white transition-colors"
+              >
                 Cancelar
               </button>
-              <button onClick={handleSave} disabled={saving} className="flex-1 text-sm py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white transition-colors">
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex-1 text-sm py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white transition-colors"
+              >
                 {saving ? 'Guardando...' : 'Agregar'}
               </button>
             </div>
