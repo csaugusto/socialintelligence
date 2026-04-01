@@ -1,5 +1,4 @@
 const googleTrends = require('./googleTrends');
-const newsApi = require('./newsApi');
 const db = require('../db');
 
 /**
@@ -7,14 +6,12 @@ const db = require('../db');
  * Devuelve array de topics ordenados por relevancia.
  */
 async function fetch() {
-  const [googleResults, newsResults] = await Promise.allSettled([
+  const [googleResults] = await Promise.allSettled([
     googleTrends.fetch(),
-    newsApi.fetch(),
   ]);
 
   const allTopics = [
     ...(googleResults.status === 'fulfilled' ? googleResults.value : []),
-    ...(newsResults.status === 'fulfilled' ? newsResults.value : []),
   ];
 
   if (!allTopics.length) return [];
@@ -31,13 +28,23 @@ async function fetch() {
 }
 
 function deduplicate(topics) {
-  const seen = new Set();
-  return topics.filter(t => {
-    const key = normalize(t.keyword);
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+  const map = new Map();
+  for (const topic of topics) {
+    const key = normalize(topic.keyword);
+    if (map.has(key)) {
+      const existing = map.get(key);
+      if (!existing.sources.includes(topic.source)) {
+        existing.sources.push(topic.source);
+      }
+      existing.score = Math.max(existing.score, topic.score);
+    } else {
+      map.set(key, { ...topic, sources: [topic.source] });
+    }
+  }
+  return Array.from(map.values()).map(t => ({
+    ...t,
+    crossSource: t.sources.length > 1,
+  }));
 }
 
 function isCovered(keyword, coveredKeywords) {

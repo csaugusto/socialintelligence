@@ -6,8 +6,14 @@ const SECRET = new TextEncoder().encode(
 );
 const COOKIE = 'si_session';
 
-export async function createSession() {
-  const token = await new SignJWT({ auth: true })
+export type Session = {
+  userId: string;
+  clientId: string;
+  role: string;
+};
+
+export async function createSession(session: Session) {
+  const token = await new SignJWT(session)
     .setProtectedHeader({ alg: 'HS256' })
     .setExpirationTime('8h')
     .sign(SECRET);
@@ -22,15 +28,20 @@ export async function createSession() {
   });
 }
 
-export async function getSession(): Promise<boolean> {
+export async function getSession(): Promise<Session | null> {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get(COOKIE)?.value;
-    if (!token) return false;
-    await jwtVerify(token, SECRET);
-    return true;
+    if (!token) return null;
+    const { payload } = await jwtVerify(token, SECRET);
+    if (!payload.userId || !payload.clientId) return null;
+    return {
+      userId: payload.userId as string,
+      clientId: payload.clientId as string,
+      role: (payload.role as string) || 'editor',
+    };
   } catch {
-    return false;
+    return null;
   }
 }
 

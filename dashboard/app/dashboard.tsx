@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import DashboardCreator from './dashboard-creator';
 
 type Recommendation = {
   action: 'AHORA' | 'PROGRAMAR' | 'CONSIDERAR' | 'NO_APLICA';
@@ -147,7 +148,9 @@ function CopyBlock({ text, hashtags }: { text: string; hashtags?: string[] }) {
   );
 }
 
-export default function Dashboard() {
+export default function Dashboard({ role, vertical }: { role?: string; vertical?: string }) {
+  if (vertical === 'creator') return <DashboardCreator role={role} />;
+
   const router = useRouter();
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
@@ -155,7 +158,8 @@ export default function Dashboard() {
   async function loadArticles() {
     const res = await fetch('/api/articles');
     if (res.status === 401) { router.push('/login'); return; }
-    setArticles(await res.json());
+    const data = await res.json();
+    setArticles(Array.isArray(data) ? data : []);
     setLoading(false);
   }
 
@@ -189,6 +193,11 @@ export default function Dashboard() {
           <Link href="/parrilla" className="text-xs text-gray-400 hover:text-white transition-colors">
             Parrilla
           </Link>
+          {role === 'superadmin' && (
+            <Link href="/admin" className="text-xs text-gray-400 hover:text-white transition-colors">
+              Admin
+            </Link>
+          )}
           <button onClick={loadArticles} className="text-xs text-gray-400 hover:text-white transition-colors">
             ↻ Actualizar
           </button>

@@ -36,6 +36,26 @@ services:
       timeout: 5s
       retries: 10
 
+  postgres:
+    image: postgres:16-alpine
+    container_name: si-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: social_intelligence
+      POSTGRES_USER: si_user
+      POSTGRES_PASSWORD: si_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - si-db:/var/lib/postgresql/data
+      - ./src/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U si_user -d social_intelligence"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 volumes:
   ghost-content:
   ghost-db:
+  si-db:
