@@ -98,7 +98,14 @@ export default function PerfilCreator({ profile }: { profile: Profile }) {
   const [newUsername, setNewUsername] = useState('');
   const [addingAccount, setAddingAccount] = useState(false);
   const [analyzing, setAnalyzing]   = useState(false);
-  const [analysisResult, setAnalysisResult] = useState<Record<string, unknown> | null>(null);
+  type AnalysisResult = {
+    top_topics?: string[];
+    tone?: string;
+    what_works?: string;
+    recommended_duration?: string;
+    [key: string]: unknown;
+  };
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
 
   useEffect(() => {
     fetch('/api/creator/accounts')
