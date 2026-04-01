@@ -320,7 +320,25 @@ function DevelopingOverlay({ keyword }: { keyword: string }) {
   );
 }
 
-export default function DashboardCreator({ role }: { role?: string }) {
+function ImpersonatingBanner({ clientName }: { clientName: string }) {
+  const router = useRouter();
+  async function exit() {
+    await fetch('/api/admin/impersonate', { method: 'DELETE' });
+    router.push('/admin');
+  }
+  return (
+    <div className="bg-blue-950 border-b border-blue-800 px-6 py-2 flex items-center justify-between">
+      <p className="text-xs text-blue-300">
+        <span className="font-semibold">Viendo como:</span> {clientName}
+      </p>
+      <button onClick={exit} className="text-xs text-blue-400 hover:text-white transition-colors underline">
+        ← Volver a Admin
+      </button>
+    </div>
+  );
+}
+
+export default function DashboardCreator({ role, impersonating, clientName }: { role?: string; impersonating?: boolean; clientName?: string | null }) {
   const router = useRouter();
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -418,6 +436,7 @@ export default function DashboardCreator({ role }: { role?: string }) {
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
+      {impersonating && clientName && <ImpersonatingBanner clientName={clientName} />}
       {/* Header */}
       <header className="border-b border-purple-900/40 px-6 py-4 flex items-center justify-between sticky top-0 bg-gray-950 z-10">
         <div>

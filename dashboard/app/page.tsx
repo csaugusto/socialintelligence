@@ -8,14 +8,18 @@ export default async function Home() {
   if (!session) redirect('/login');
 
   let vertical = 'media';
+  let clientName: string | null = null;
 
-  // Superadmin entra directo — no tiene cliente ni perfil propio
-  if (session.role !== 'superadmin') {
-    const profile = await getClientProfile(session.clientId);
-    if (!profile) redirect('/onboarding');
-    const client = await getClient(session.clientId);
-    if (client?.vertical) vertical = client.vertical;
+  // Superadmin sin impersonar → ir a admin
+  if (session.role === 'superadmin' && !session.impersonating) {
+    redirect('/admin');
   }
 
-  return <Dashboard role={session.role} vertical={vertical} />;
+  const profile = await getClientProfile(session.clientId);
+  if (!profile) redirect('/onboarding');
+  const client = await getClient(session.clientId);
+  if (client?.vertical) vertical = client.vertical;
+  if (session.impersonating) clientName = client?.name || null;
+
+  return <Dashboard role={session.role} vertical={vertical} impersonating={session.impersonating} clientName={clientName} />;
 }

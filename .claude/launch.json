@@ -1,0 +1,26 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "core-engine",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": null,
+      "description": "Pipeline de análisis editorial con cron job (./src/index.js)"
+    },
+    {
+      "name": "dashboard",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000,
+      "description": "Next.js dashboard (./dashboard)"
+    },
+    {
+      "name": "ghost",
+      "runtimeExecutable": "docker-compose",
+      "runtimeArgs": ["up"],
+      "port": 2368,
+      "description": "Ghost CMS + MySQL (docker-compose.yml)"
+    }
+  ]
+}

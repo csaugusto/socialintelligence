@@ -10,6 +10,7 @@ export type Session = {
   userId: string;
   clientId: string;
   role: string;
+  impersonating?: boolean;
 };
 
 export async function createSession(session: Session) {
@@ -39,6 +40,7 @@ export async function getSession(): Promise<Session | null> {
       userId: payload.userId as string,
       clientId: payload.clientId as string,
       role: (payload.role as string) || 'editor',
+      impersonating: (payload.impersonating as boolean) || false,
     };
   } catch {
     return null;

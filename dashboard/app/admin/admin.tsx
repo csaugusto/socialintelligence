@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 type Client = {
@@ -188,6 +189,16 @@ function ClientDetail({
 }) {
   const { client, users } = detail;
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const router = useRouter();
+
+  async function handleImpersonate() {
+    const res = await fetch('/api/admin/impersonate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clientId: client.id, clientName: client.name }),
+    });
+    if (res.ok) router.push('/');
+  }
 
   return (
     <div className="max-w-2xl">
@@ -204,6 +215,12 @@ function ClientDetail({
               className="text-xs px-2.5 py-1 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg transition-colors text-gray-400 hover:text-white"
             >
               Editar
+            </button>
+            <button
+              onClick={handleImpersonate}
+              className="text-xs px-2.5 py-1 bg-blue-700 hover:bg-blue-600 border border-blue-600 rounded-lg transition-colors text-white font-medium"
+            >
+              Ver dashboard →
             </button>
           </div>
         </div>
