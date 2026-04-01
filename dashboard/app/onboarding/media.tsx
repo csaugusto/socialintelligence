@@ -55,6 +55,7 @@ const RED_LABELS: Record<string, string> = {
 type ScorerConfig = {
   enabled_networks?: string[];
   category_weights?: Record<string, number[]>;
+  production_time?: Record<string, number>;
   [key: string]: unknown;
 };
 
