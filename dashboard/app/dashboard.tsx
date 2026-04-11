@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import DashboardCreator from './dashboard-creator';
+import WorkspaceSwitcher from '@/components/WorkspaceSwitcher';
 
 type Recommendation = {
   action: 'AHORA' | 'PROGRAMAR' | 'CONSIDERAR' | 'NO_APLICA';
@@ -149,32 +150,28 @@ function CopyBlock({ text, hashtags }: { text: string; hashtags?: string[] }) {
 }
 
 function ImpersonatingBanner({ clientName }: { clientName: string }) {
-  const router = useRouter();
-  async function exit() {
-    await fetch('/api/admin/impersonate', { method: 'DELETE' });
-    router.push('/admin');
-  }
   return (
     <div className="bg-blue-950 border-b border-blue-800 px-6 py-2 flex items-center justify-between">
       <p className="text-xs text-blue-300">
         <span className="font-semibold">Viendo como:</span> {clientName}
       </p>
-      <button onClick={exit} className="text-xs text-blue-400 hover:text-white transition-colors underline">
-        ← Volver a Admin
+      <button onClick={() => window.close()} className="text-xs text-blue-400 hover:text-white transition-colors underline">
+        × Cerrar
       </button>
     </div>
   );
 }
 
-export default function Dashboard({ role, vertical, impersonating, clientName }: { role?: string; vertical?: string; impersonating?: boolean; clientName?: string | null }) {
-  if (vertical === 'creator') return <DashboardCreator role={role} impersonating={impersonating} clientName={clientName} />;
+export default function Dashboard({ role, vertical, viewAsClientId, clientName, workspaceId, workspaceName }: { role?: string; vertical?: string; viewAsClientId?: string | null; clientName?: string | null; workspaceId?: string; workspaceName?: string }) {
+  if (vertical === 'creator') return <DashboardCreator role={role} viewAsClientId={viewAsClientId} clientName={clientName} workspaceId={workspaceId} workspaceName={workspaceName} />;
 
   const router = useRouter();
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
 
   async function loadArticles() {
-    const res = await fetch('/api/articles');
+    const url = viewAsClientId ? `/api/articles?clientId=${viewAsClientId}` : '/api/articles';
+    const res = await fetch(url);
     if (res.status === 401) { router.push('/login'); return; }
     const data = await res.json();
     setArticles(Array.isArray(data) ? data : []);
@@ -201,12 +198,17 @@ export default function Dashboard({ role, vertical, impersonating, clientName }:
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
-      {impersonating && clientName && <ImpersonatingBanner clientName={clientName} />}
+      {viewAsClientId && clientName && <ImpersonatingBanner clientName={clientName} />}
       {/* Header */}
       <header className="border-b border-gray-800 px-6 py-4 flex items-center justify-between sticky top-0 bg-gray-950 z-10">
-        <div>
-          <h1 className="text-lg font-bold tracking-tight">Social Intelligence</h1>
-          <p className="text-xs text-gray-500">Panel editorial</p>
+        <div className="flex items-center gap-3">
+          <div>
+            <h1 className="text-lg font-bold tracking-tight">Social Intelligence</h1>
+            <p className="text-xs text-gray-500">Panel editorial</p>
+          </div>
+          {workspaceId && workspaceName && (
+            <WorkspaceSwitcher currentWorkspaceId={workspaceId} currentWorkspaceName={workspaceName} />
+          )}
         </div>
         <div className="flex items-center gap-4">
           <Link href="/parrilla" className="text-xs text-gray-400 hover:text-white transition-colors">

@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
 
+  const viewAs = session.role === 'superadmin' ? req.nextUrl.searchParams.get('clientId') : null;
+  const clientId = viewAs || session.clientId;
+
   const db = require('../../../../../src/db/index.js');
-  const accounts = await db.getSocialAccounts(session.clientId);
+  const accounts = await db.getSocialAccounts(clientId);
   // No exponer tokens
   return NextResponse.json(accounts.map((a: Record<string, unknown>) => ({
     id: a.id, platform: a.platform, username: a.username,

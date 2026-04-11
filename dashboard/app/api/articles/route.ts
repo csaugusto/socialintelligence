@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 
 // PostgreSQL devuelve columnas en snake_case. El dashboard espera camelCase.
@@ -27,13 +27,16 @@ function mapArticle(row: Record<string, unknown>) {
   };
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
 
+  const viewAs = session.role === 'superadmin' ? req.nextUrl.searchParams.get('clientId') : null;
+  const clientId = viewAs || session.clientId;
+
   try {
     const db = require('../../../../src/db/index.js');
-    const rows = await db.getRecentArticles(50, session.clientId);
+    const rows = await db.getRecentArticles(50, clientId);
     return NextResponse.json(rows.map(mapArticle));
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);

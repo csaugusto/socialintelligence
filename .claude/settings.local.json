@@ -15,7 +15,28 @@
       "Bash(docker exec:*)",
       "Bash(npm run:*)",
       "Bash(npm install:*)",
-      "Bash(node -e \"const bcrypt = require\\(''bcrypt''\\); bcrypt.hash\\(''r00t'', 10\\).then\\(h => console.log\\(h\\)\\);\")"
+      "Bash(node -e \"const bcrypt = require\\(''bcrypt''\\); bcrypt.hash\\(''r00t'', 10\\).then\\(h => console.log\\(h\\)\\);\")",
+      "Bash(psql postgresql://si_user:si_pass@localhost:5432/social_intelligence -f src/db/migrations/001_workspaces.sql)",
+      "Bash(node_modules/.bin/tsc --noEmit)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(echo \"DONE:$?\")",
+      "Bash(node -e ':*)",
+      "Bash(PGPASSWORD=si_pass psql -h localhost -U si_user -d social_intelligence -c \"\\\\d users\")",
+      "Bash(node_modules/.bin/tsc --noEmit --skipLibCheck)",
+      "Bash(node --env-file=.env -e ':*)",
+      "Bash(grep -l \"linear-gradient\\(135deg, #7C3AED, #A855F7\\)\" \"/Users/carlossanchez/Desktop/Projects/social intelligence/dashboard/app/onboarding/steps/\"*.tsx \"/Users/carlossanchez/Desktop/Projects/social intelligence/dashboard/app/register/page.tsx\")",
+      "Bash(python3 -)",
+      "Bash(psql \"postgresql://si_user:si_pass@localhost:5432/social_intelligence\" -f src/db/migrations/002_ai_profile.sql)",
+      "Read(//Applications/Postgres.app/Contents/**)",
+      "Read(//usr/local/bin/**)",
+      "Read(//opt/homebrew/bin/**)",
+      "Bash(sed -i '' -e 's/Paso 1 de 9/Paso 1 de 10/' -e 's/Paso 2 de 9/Paso 2 de 10/' -e 's/Paso 3 de 9/Paso 3 de 10/' '/Users/carlossanchez/Desktop/Projects/social intelligence/dashboard/app/onboarding/steps/step1-tipo.tsx' '/Users/carlossanchez/Desktop/Projects/social intelligence/dashboard/app/onboarding/steps/step2-objetivo.tsx' '/Users/carlossanchez/Desktop/Projects/social intelligence/dashboard/app/onboarding/steps/step3-plataformas.tsx')",
+      "Bash(sed -i '' 's/Paso 4 de 9/Paso 5 de 10/' '/Users/carlossanchez/Desktop/Projects/social intelligence/dashboard/app/onboarding/steps/step4-nicho.tsx')",
+      "Bash(sed -i '' 's/Paso 5 de 9/Paso 6 de 10/' '/Users/carlossanchez/Desktop/Projects/social intelligence/dashboard/app/onboarding/steps/step5-pilares.tsx')",
+      "Bash(sed -i '' 's/Paso 6 de 9/Paso 7 de 10/' '/Users/carlossanchez/Desktop/Projects/social intelligence/dashboard/app/onboarding/steps/step6-competencia.tsx')",
+      "Bash(sed -i '' 's/Paso 7 de 9/Paso 8 de 10/' '/Users/carlossanchez/Desktop/Projects/social intelligence/dashboard/app/onboarding/steps/step7-ritmo.tsx')",
+      "Bash(grep -n \"CREATE TABLE articles\\\\|studio_content\\\\|studio\" \"/Users/carlossanchez/Desktop/Projects/social intelligence/src/db/migrations/\"*.sql)",
+      "Bash(chmod +x \"/Users/carlossanchez/Desktop/Projects/social intelligence/deploy.sh\" \"/Users/carlossanchez/Desktop/Projects/social intelligence/setup.sh\")"
     ]
   }
 }

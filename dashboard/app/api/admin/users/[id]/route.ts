@@ -12,15 +12,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!session) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
 
   const { id } = await params;
-  const { email, role, active, clientId } = await req.json();
+  const { email, role, active, clientId, workspaceId } = await req.json();
 
-  if (role && !['superadmin', 'admin', 'editor'].includes(role)) {
+  const validRoles = ['owner', 'editor', 'creator', 'analyst', 'viewer'];
+  if (role && !validRoles.includes(role)) {
     return NextResponse.json({ error: 'Role inválido' }, { status: 400 });
   }
 
   const db = require('../../../../../../src/db/index.js');
   try {
-    const user = await db.updateUser(id, { email, role, active, clientId });
+    const user = await db.updateUser(id, { email, role, active, workspaceId: workspaceId || clientId });
     if (!user) return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
     return NextResponse.json(user);
   } catch (err: unknown) {

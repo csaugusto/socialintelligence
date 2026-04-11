@@ -1,4 +1,5 @@
 const Groq = require('groq-sdk');
+const { buildSystemPrompt } = require('../lib/ai-profile.js');
 
 let client = null;
 function getClient() {
@@ -24,11 +25,12 @@ const FORMAT_BY_NETWORK = {
 
 /**
  * Genera un brief creativo para un creator.
- * @param {object} topic  - Trend detectado { keyword, excerpt, score, ... }
- * @param {object} profile - Perfil del creator { main_category, categories, primary_network, active_networks, audience_age_range, produces_video, editorial_schedule }
+ * @param {object} topic     - Trend detectado { keyword, excerpt, score, ... }
+ * @param {object} profile   - workspace_profiles row
+ * @param {object} workspace - workspaces row (incluye ai_profile compilado del onboarding)
  * @returns {object|null} Brief creativo o null si el tema no es relevante para el nicho
  */
-async function generate(topic, profile) {
+async function generate(topic, profile, workspace) {
   if (!process.env.GROQ_API_KEY) {
     console.warn('[Generator/Creator] GROQ_API_KEY no configurada.');
     return null;
@@ -37,6 +39,9 @@ async function generate(topic, profile) {
   const nichoLabel = NICHO_LABELS[profile.main_category] || profile.main_category || 'General';
   const primaryNet = profile.primary_network || 'instagram';
   const formats    = FORMAT_BY_NETWORK[primaryNet] || FORMAT_BY_NETWORK.instagram;
+
+  const taskInstructions = 'Eres un estratega de contenido para creators de redes sociales. Tu trabajo es identificar si un tema trending es relevante para el nicho del creator y, si lo es, generar un brief creativo accionable. Respondes ÚNICAMENTE con JSON válido.';
+  const systemPrompt = buildSystemPrompt(workspace, taskInstructions);
 
   try {
     const completion = await getClient().chat.completions.create({
@@ -47,7 +52,7 @@ async function generate(topic, profile) {
       messages: [
         {
           role: 'system',
-          content: 'Eres un estratega de contenido para creators de redes sociales. Tu trabajo es identificar si un tema trending es relevante para el nicho del creator y, si lo es, generar un brief creativo accionable. Respondes ÚNICAMENTE con JSON válido.',
+          content: systemPrompt,
         },
         {
           role: 'user',

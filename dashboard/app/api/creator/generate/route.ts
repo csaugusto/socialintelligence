@@ -37,10 +37,12 @@ export async function POST(req: NextRequest) {
     const scorer            = require('../../../../../src/scorer/index.js');
     const { buildCreatorConfig } = require('../../../../../src/scorer/creatorConfig.js');
 
-    const profile = await db.getClientProfile(session.clientId);
+    const workspaceId = session.workspaceId || session.clientId;
+    const profile = await db.getClientProfile(workspaceId);
     if (!profile) return NextResponse.json({ error: 'Sin perfil' }, { status: 404 });
 
-    const nota = await creatorGen.generate(topic, profile);
+    const workspace = await db.getClient(workspaceId);
+    const nota = await creatorGen.generate(topic, profile, workspace);
     if (!nota) {
       return NextResponse.json({ error: 'Este tema no conecta con tu nicho' }, { status: 422 });
     }
@@ -57,7 +59,7 @@ export async function POST(req: NextRequest) {
     const saved  = await db.saveArticle({
       nota, scores,
       ghostPost: null,
-      clientId: session.clientId,
+      workspaceId,
       trendContext,
     });
 

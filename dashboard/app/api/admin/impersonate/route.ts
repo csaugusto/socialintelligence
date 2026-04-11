@@ -16,9 +16,11 @@ export async function POST(req: NextRequest) {
   if (!client) return NextResponse.json({ error: 'Cliente no encontrado' }, { status: 404 });
 
   await createSession({
-    userId: session.userId,
+    userId:        session.userId,
+    workspaceId:   clientId,
     clientId,
-    role: 'admin',
+    role:          'user',
+    workspaceRole: 'owner',
     impersonating: true,
   });
 
@@ -31,9 +33,11 @@ export async function DELETE() {
   if (!session) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
 
   await createSession({
-    userId: session.userId,
-    clientId: '00000000-0000-0000-0000-000000000001',
-    role: 'superadmin',
+    userId:        session.userId,
+    workspaceId:   '',
+    clientId:      '',
+    role:          'superadmin',
+    workspaceRole: 'owner',
     impersonating: false,
   });
 

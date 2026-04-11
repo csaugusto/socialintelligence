@@ -11,17 +11,19 @@ export async function POST(req: NextRequest) {
   const session = await requireAdmin();
   if (!session) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
 
-  const { email, password, clientId, role } = await req.json();
-  if (!email || !password || !clientId) {
+  const { email, password, clientId, workspaceId, role } = await req.json();
+  const wsId = workspaceId || clientId;
+  if (!email || !password || !wsId) {
     return NextResponse.json({ error: 'Faltan campos requeridos' }, { status: 400 });
   }
-  if (!['admin', 'editor'].includes(role || 'editor')) {
+  const validRoles = ['owner', 'editor', 'creator', 'analyst', 'viewer'];
+  if (!validRoles.includes(role || 'editor')) {
     return NextResponse.json({ error: 'Role inválido' }, { status: 400 });
   }
 
   const db = require('../../../../../src/db/index.js');
   try {
-    const user = await db.createUser({ email, password, clientId, role: role || 'editor' });
+    const user = await db.createUser({ email, password, workspaceId: wsId, role: role || 'editor' });
     return NextResponse.json(user, { status: 201 });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);

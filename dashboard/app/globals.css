@@ -1,26 +1,233 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #050816;
+  --foreground: #ffffff;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-oxanium);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-oxanium);
+  --font-body: var(--font-geist-sans);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ── Base: Oxanium en toda la UI ── */
+html {
+  font-size: 17px;
+  font-family: var(--font-oxanium), var(--font-geist-sans), system-ui, sans-serif;
+  background: var(--background); /* fallback cuando body es transparent */
 }
 
 body {
-  background: var(--background);
+  background: transparent; /* el fondo animado queda fijo debajo */
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-oxanium), var(--font-geist-sans), system-ui, sans-serif;
+}
+
+/* ── Texto de contenido largo: Geist para legibilidad ── */
+p, li, blockquote {
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+/* ── Headings: Oxanium siempre ── */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-oxanium), sans-serif;
+  letter-spacing: -0.01em;
+}
+
+/* ── Cursors ── */
+button:not(:disabled),
+[role="button"],
+a,
+label,
+select,
+summary,
+[tabindex]:not([tabindex="-1"]) {
+  cursor: pointer;
+}
+
+/* Drag & drop — feel premium */
+[draggable="true"] {
+  cursor: grab;
+}
+[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+/* ── Utilidad manual ── */
+.font-display {
+  font-family: var(--font-oxanium), sans-serif;
+}
+.font-body {
+  font-family: var(--font-geist-sans), sans-serif;
+}
+
+/* ── Botón primario ── */
+.btn-primary {
+  font-family: var(--font-oxanium), sans-serif !important;
+  font-weight: 600 !important;
+  font-size: 15px !important;
+  letter-spacing: 0.03em !important;
+  color: white !important;
+  background: #7C3AED !important;
+  border: none !important;
+  cursor: pointer;
+  box-shadow: 0 0 20px rgba(124,58,237,0.5), 0 0 40px rgba(124,58,237,0.2) !important;
+  transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #6D28D9 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 0 28px rgba(124,58,237,0.7), 0 0 60px rgba(124,58,237,0.3) !important;
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+  background: #5B21B6 !important;
+  box-shadow: 0 0 14px rgba(124,58,237,0.4) !important;
+}
+
+.btn-primary:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  box-shadow: none !important;
+}
+
+/* ═══════════════════════════════════════════════
+   ANIMATED BACKGROUND
+   Fondo cósmico fijo — aurora + grid + estrellas
+   ═══════════════════════════════════════════════ */
+
+.animated-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+  /* Base: degradado oscuro en tres tonos */
+  background:
+    radial-gradient(ellipse at 15% 15%, #120822 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 85%, #0a0f1f 0%, transparent 55%),
+    #050816;
+}
+
+/* ── Aurora blobs ── */
+.abg-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  will-change: transform;
+}
+
+/* Blob 1 — morado intenso, arriba-izquierda */
+.abg-blob-1 {
+  width: clamp(380px, 50vw, 680px);
+  height: clamp(380px, 50vw, 680px);
+  background: radial-gradient(circle at 45% 40%,
+    rgba(124,58,237,0.55) 0%,
+    rgba(88,28,220,0.22) 40%,
+    transparent 70%);
+  top: -14%;
+  left: -7%;
+  animation: abg-float-1 22s ease-in-out infinite;
+}
+
+/* Blob 2 — azul índigo, derecha-centro */
+.abg-blob-2 {
+  width: clamp(300px, 44vw, 600px);
+  height: clamp(300px, 44vw, 600px);
+  background: radial-gradient(circle at 55% 45%,
+    rgba(59,130,246,0.32) 0%,
+    rgba(99,102,241,0.14) 42%,
+    transparent 70%);
+  top: 22%;
+  right: -11%;
+  animation: abg-float-2 28s ease-in-out infinite;
+}
+
+/* Blob 3 — violeta difuso, abajo-centro */
+.abg-blob-3 {
+  width: clamp(420px, 60vw, 820px);
+  height: clamp(260px, 38vw, 500px);
+  background: radial-gradient(ellipse at 50% 50%,
+    rgba(168,85,247,0.26) 0%,
+    rgba(124,58,237,0.10) 44%,
+    transparent 70%);
+  bottom: -12%;
+  left: 12%;
+  animation: abg-float-3 19s ease-in-out infinite;
+}
+
+/* Blob 4 — morado-azul, arriba-derecha */
+.abg-blob-4 {
+  width: clamp(220px, 33vw, 440px);
+  height: clamp(220px, 33vw, 440px);
+  background: radial-gradient(circle at 50% 50%,
+    rgba(109,40,217,0.30) 0%,
+    rgba(59,130,246,0.11) 44%,
+    transparent 70%);
+  top: 6%;
+  right: 20%;
+  animation: abg-float-4 25s ease-in-out infinite;
+}
+
+/* ── Grid tenue ── */
+.abg-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.020) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.020) 1px, transparent 1px);
+  background-size: 72px 72px;
+}
+
+/* ── Estrellas — 3 grids superpuestos → campo pseudo-aleatorio ── */
+.abg-stars {
+  position: absolute;
+  inset: 0;
+  /* Capa 1: estrellas brillantes, dispersas */
+  background-image:
+    radial-gradient(circle, rgba(255,255,255,0.70) 1px, transparent 1px),
+    radial-gradient(circle, rgba(255,255,255,0.45) 1px, transparent 1px),
+    radial-gradient(circle, rgba(255,255,255,0.28) 1px, transparent 1px);
+  background-size: 380px 380px, 220px 220px, 140px 140px;
+  background-position: 0 0, 95px 140px, 55px 75px;
+  animation: abg-stars-drift 80s linear infinite;
+}
+
+/* ── Keyframes aurora ── */
+@keyframes abg-float-1 {
+  0%, 100% { transform: translate(0,   0)    scale(1);    }
+  25%       { transform: translate(38px, -28px) scale(1.07); }
+  50%       { transform: translate(14px,  20px) scale(0.94); }
+  75%       { transform: translate(-24px, -10px) scale(1.04); }
+}
+
+@keyframes abg-float-2 {
+  0%, 100% { transform: translate(0,    0)    scale(1);    }
+  30%       { transform: translate(-32px, 24px) scale(1.06); }
+  65%       { transform: translate(20px, -18px) scale(0.93); }
+}
+
+@keyframes abg-float-3 {
+  0%, 100% { transform: translate(0,   0)    scale(1);    }
+  35%       { transform: translate(30px,  18px) scale(1.09); }
+  70%       { transform: translate(-20px, -26px) scale(0.91); }
+}
+
+@keyframes abg-float-4 {
+  0%, 100% { transform: translate(0,    0)    scale(1);    opacity: 1;   }
+  40%       { transform: translate(-30px, 14px) scale(1.11); opacity: 0.8; }
+  72%       { transform: translate(24px, -22px) scale(0.89); opacity: 0.9; }
+}
+
+/* Deriva muy lenta de las estrellas */
+@keyframes abg-stars-drift {
+  from { background-position: 0 0,          95px 140px, 55px 75px; }
+  to   { background-position: 380px 380px, 315px 320px, 195px 215px; }
 }

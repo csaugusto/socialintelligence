@@ -5,8 +5,8 @@
  *   DATABASE_URL presente → PostgreSQL (producción)
  *   Sin DATABASE_URL      → JSON en archivo (desarrollo)
  *
- * Todas las funciones tienen la misma firma en ambos modos.
- * client_id es opcional; si se omite usa el cliente default.
+ * Todas las funciones aceptan workspaceId (antes clientId).
+ * Los parámetros clientId siguen funcionando como alias para compatibilidad.
  */
 
 const path = require('path');
@@ -67,17 +67,17 @@ function jsonWriteParrilla(items) {
 // ARTICLES
 // ---------------------------------------------------------------------------
 
-async function saveArticle({ nota, scores, ghostPost, clientId, trendContext }) {
+async function saveArticle({ nota, scores, ghostPost, clientId, workspaceId, trendContext }) {
   if (usingPg()) {
     const res = await getPool().query(
       `INSERT INTO articles
-         (client_id, title, excerpt, category, decay_type, is_breaking, has_video,
+         (workspace_id, title, excerpt, category, decay_type, is_breaking, has_video,
           is_local, source_trend, tags, copy, hashtags, scores, trend_context, ghost_id, ghost_url,
           brief, angle)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
        RETURNING *`,
       [
-        clientId || DEFAULT_CLIENT_ID,
+        workspaceId || clientId || DEFAULT_CLIENT_ID,
         nota.title, nota.excerpt, nota.category, nota.decayType,
         nota.isBreaking || false, nota.hasVideo || false, nota.isLocal !== false,
         nota.sourceTrend, nota.tags || [],
@@ -129,12 +129,12 @@ async function updateArticleScores(id, scores) {
   return articles[idx];
 }
 
-async function getRecentKeywords(hours = 6, clientId) {
+async function getRecentKeywords(hours = 6, workspaceId) {
   if (usingPg()) {
     const res = await getPool().query(
       `SELECT source_trend FROM articles
-       WHERE client_id = $1 AND created_at > NOW() - INTERVAL '${hours} hours'`,
-      [clientId || DEFAULT_CLIENT_ID]
+       WHERE workspace_id = $1 AND created_at > NOW() - INTERVAL '${hours} hours'`,
+      [workspaceId || DEFAULT_CLIENT_ID]
     );
     return res.rows.map(r => r.source_trend);
   }
@@ -143,11 +143,11 @@ async function getRecentKeywords(hours = 6, clientId) {
   return jsonReadAll().filter(a => a.createdAt > cutoff).map(a => a.sourceTrend);
 }
 
-async function getRecentArticles(limit = 50, clientId) {
+async function getRecentArticles(limit = 50, workspaceId) {
   if (usingPg()) {
     const res = await getPool().query(
-      `SELECT * FROM articles WHERE client_id = $1 ORDER BY created_at DESC LIMIT $2`,
-      [clientId || DEFAULT_CLIENT_ID, limit]
+      `SELECT * FROM articles WHERE workspace_id = $1 ORDER BY created_at DESC LIMIT $2`,
+      [workspaceId || DEFAULT_CLIENT_ID, limit]
     );
     return res.rows;
   }
@@ -159,13 +159,13 @@ async function getRecentArticles(limit = 50, clientId) {
 // PARRILLA
 // ---------------------------------------------------------------------------
 
-async function addToParrilla({ articleId, articleTitle, network, scheduledFor, copy, hashtags, clientId }) {
+async function addToParrilla({ articleId, articleTitle, network, scheduledFor, copy, hashtags, clientId, workspaceId }) {
   if (usingPg()) {
     const res = await getPool().query(
-      `INSERT INTO parrilla (client_id, article_id, article_title, network, scheduled_for, copy, hashtags)
+      `INSERT INTO parrilla (workspace_id, article_id, article_title, network, scheduled_for, copy, hashtags)
        VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
       [
-        clientId || DEFAULT_CLIENT_ID,
+        workspaceId || clientId || DEFAULT_CLIENT_ID,
         articleId, articleTitle, network, scheduledFor,
         copy || null, hashtags || [],
       ]
@@ -187,11 +187,11 @@ async function addToParrilla({ articleId, articleTitle, network, scheduledFor, c
   return { item, conflicts: detectConflicts(items, item) };
 }
 
-async function removeFromParrilla(id, clientId) {
+async function removeFromParrilla(id, workspaceId) {
   if (usingPg()) {
     await getPool().query(
-      `DELETE FROM parrilla WHERE id = $1 AND client_id = $2`,
-      [id, clientId || DEFAULT_CLIENT_ID]
+      `DELETE FROM parrilla WHERE id = $1 AND workspace_id = $2`,
+      [id, workspaceId || DEFAULT_CLIENT_ID]
     );
     return;
   }
@@ -199,14 +199,14 @@ async function removeFromParrilla(id, clientId) {
   jsonWriteParrilla(jsonReadParrilla().filter(i => i.id !== id));
 }
 
-async function getParrilla(clientId) {
+async function getParrilla(workspaceId) {
   if (usingPg()) {
     const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
     const res = await getPool().query(
       `SELECT * FROM parrilla
-       WHERE client_id = $1 AND scheduled_for > $2 AND status = 'pending'
+       WHERE workspace_id = $1 AND scheduled_for > $2 AND status = 'pending'
        ORDER BY scheduled_for ASC`,
-      [clientId || DEFAULT_CLIENT_ID, cutoff]
+      [workspaceId || DEFAULT_CLIENT_ID, cutoff]
     );
     return res.rows.map(item => ({ ...item, conflicts: detectConflicts(res.rows, item) }));
   }
@@ -260,28 +260,103 @@ function getSlotCount(network, isoHour, clientId) {
 async function saveClient({ name, slug, type, coverage, region, vertical = 'media' }) {
   if (!usingPg()) throw new Error('saveClient requiere PostgreSQL (DATABASE_URL)');
   const res = await getPool().query(
-    `INSERT INTO clients (name, slug, type, coverage, region, vertical)
+    `INSERT INTO workspaces (name, slug, type, coverage, region, vertical)
      VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
     [name, slug, type, coverage, region || null, vertical]
   );
   return res.rows[0];
 }
 
-async function getClient(clientId) {
+async function getClient(workspaceId) {
   if (!usingPg()) return { id: DEFAULT_CLIENT_ID, name: 'Default', slug: 'default' };
-  const res = await getPool().query(`SELECT * FROM clients WHERE id = $1`, [clientId]);
+  const res = await getPool().query(`SELECT * FROM workspaces WHERE id = $1`, [workspaceId]);
   return res.rows[0] || null;
 }
 
-async function saveClientProfile(clientId, profile) {
+async function saveWizardData(workspaceId, data) {
+  if (!usingPg()) throw new Error('saveWizardData requiere PostgreSQL (DATABASE_URL)');
+  const pool = getPool();
+
+  const nichos       = data.nicho || [];
+  const mainCategory = nichos[0] || null;
+  const platforms    = data.platforms || [];
+  const primaryNet   = platforms[0] || null;
+  const producesVideo = platforms.some(p => ['youtube', 'tiktok'].includes(p));
+
+  // Upsert workspace_profiles con todos los campos del wizard
+  await pool.query(
+    `INSERT INTO workspace_profiles
+       (workspace_id, categories, main_category, active_networks, primary_network,
+        produces_video, objectives, content_pillars,
+        posting_frequency, production_capacity, tone, tone_limits, content_patterns)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+     ON CONFLICT (workspace_id) DO UPDATE SET
+       categories          = EXCLUDED.categories,
+       main_category       = EXCLUDED.main_category,
+       active_networks     = EXCLUDED.active_networks,
+       primary_network     = EXCLUDED.primary_network,
+       produces_video      = EXCLUDED.produces_video,
+       objectives          = EXCLUDED.objectives,
+       content_pillars     = EXCLUDED.content_pillars,
+       posting_frequency   = EXCLUDED.posting_frequency,
+       production_capacity = EXCLUDED.production_capacity,
+       tone                = EXCLUDED.tone,
+       tone_limits         = EXCLUDED.tone_limits,
+       content_patterns    = COALESCE(EXCLUDED.content_patterns, workspace_profiles.content_patterns),
+       updated_at          = NOW()`,
+    [
+      workspaceId,
+      nichos,
+      mainCategory,
+      platforms,
+      primaryNet,
+      producesVideo,
+      data.objectives || [],
+      data.pillars || [],
+      data.frequency || null,
+      data.productionCapacity || null,
+      data.tone ? [data.tone] : [],
+      JSON.stringify({
+        avoid_topics: data.toneAvoid || [],
+        controversy_level: data.controversyLevel ?? 1,
+      }),
+      data.contentPatterns ? JSON.stringify(data.contentPatterns) : null,
+    ]
+  );
+
+  // Guardar handle de YouTube si se analizó el canal
+  if (data.youtubeHandle && data.contentPatterns) {
+    const handle = data.youtubeHandle.startsWith('@') ? data.youtubeHandle : `@${data.youtubeHandle}`;
+    await pool.query(
+      `INSERT INTO social_accounts (workspace_id, platform, username, connection_type)
+       VALUES ($1, 'youtube', $2, 'public')
+       ON CONFLICT (workspace_id, platform) DO UPDATE SET username = EXCLUDED.username`,
+      [workspaceId, handle]
+    );
+  }
+
+  // Insertar competidores (limpia y reinserta)
+  if (data.competitors && data.competitors.length > 0) {
+    await pool.query(`DELETE FROM competitors WHERE workspace_id = $1`, [workspaceId]);
+    for (const c of data.competitors) {
+      await pool.query(
+        `INSERT INTO competitors (workspace_id, handle, platform, label, display_name)
+         VALUES ($1,$2,$3,$4,$5)`,
+        [workspaceId, c.handle, c.platform, c.label, c.display_name || null]
+      );
+    }
+  }
+}
+
+async function saveClientProfile(workspaceId, profile) {
   if (!usingPg()) throw new Error('saveClientProfile requiere PostgreSQL (DATABASE_URL)');
   const res = await getPool().query(
-    `INSERT INTO client_profiles
-       (client_id, categories, main_category, produces_video, covers_breaking,
+    `INSERT INTO workspace_profiles
+       (workspace_id, categories, main_category, produces_video, covers_breaking,
         active_networks, primary_network, editorial_schedule, team_size,
         audience_age_range, known_peak_hours, profile_narrative)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-     ON CONFLICT (client_id) DO UPDATE SET
+     ON CONFLICT (workspace_id) DO UPDATE SET
        categories = EXCLUDED.categories,
        main_category = EXCLUDED.main_category,
        produces_video = EXCLUDED.produces_video,
@@ -296,7 +371,7 @@ async function saveClientProfile(clientId, profile) {
        updated_at = NOW()
      RETURNING *`,
     [
-      clientId,
+      workspaceId,
       profile.categories || [],
       profile.main_category || null,
       profile.produces_video || false,
@@ -313,22 +388,22 @@ async function saveClientProfile(clientId, profile) {
   return res.rows[0];
 }
 
-async function getClientProfile(clientId) {
+async function getClientProfile(workspaceId) {
   if (!usingPg()) return null;
   const res = await getPool().query(
-    `SELECT * FROM client_profiles WHERE client_id = $1`, [clientId]
+    `SELECT * FROM workspace_profiles WHERE workspace_id = $1`, [workspaceId]
   );
   return res.rows[0] || null;
 }
 
-async function saveClientScorerConfig(clientId, config) {
+async function saveClientScorerConfig(workspaceId, config) {
   if (!usingPg()) throw new Error('saveClientScorerConfig requiere PostgreSQL (DATABASE_URL)');
   const res = await getPool().query(
-    `INSERT INTO client_scorer_config
-       (client_id, category_weights, hour_factors, day_multipliers,
+    `INSERT INTO workspace_scorer_config
+       (workspace_id, category_weights, hour_factors, day_multipliers,
         format_signals, production_time, enabled_networks)
      VALUES ($1,$2,$3,$4,$5,$6,$7)
-     ON CONFLICT (client_id) DO UPDATE SET
+     ON CONFLICT (workspace_id) DO UPDATE SET
        category_weights = EXCLUDED.category_weights,
        hour_factors = EXCLUDED.hour_factors,
        day_multipliers = EXCLUDED.day_multipliers,
@@ -338,7 +413,7 @@ async function saveClientScorerConfig(clientId, config) {
        updated_at = NOW()
      RETURNING *`,
     [
-      clientId,
+      workspaceId,
       JSON.stringify(config.category_weights || null),
       JSON.stringify(config.hour_factors || null),
       JSON.stringify(config.day_multipliers || null),
@@ -350,10 +425,10 @@ async function saveClientScorerConfig(clientId, config) {
   return res.rows[0];
 }
 
-async function getClientScorerConfig(clientId) {
+async function getClientScorerConfig(workspaceId) {
   if (!usingPg()) return null;
   const res = await getPool().query(
-    `SELECT * FROM client_scorer_config WHERE client_id = $1`, [clientId]
+    `SELECT * FROM workspace_scorer_config WHERE workspace_id = $1`, [workspaceId]
   );
   return res.rows[0] || null;
 }
@@ -362,56 +437,98 @@ async function getClientScorerConfig(clientId) {
 // USERS
 // ---------------------------------------------------------------------------
 
-async function updateClient(clientId, { name, slug, type, coverage, region, vertical, active }) {
+async function updateClient(workspaceId, { name, slug, type, coverage, region, vertical, active }) {
   if (!usingPg()) throw new Error('updateClient requiere PostgreSQL');
   const res = await getPool().query(
-    `UPDATE clients SET name=$1, slug=$2, type=$3, coverage=$4, region=$5, vertical=$6, active=$7
+    `UPDATE workspaces SET name=$1, slug=$2, type=$3, coverage=$4, region=$5, vertical=$6, active=$7
      WHERE id=$8 RETURNING *`,
-    [name, slug, type, coverage, region || null, vertical || 'media', active ?? true, clientId]
+    [name, slug, type, coverage, region || null, vertical || 'media', active ?? true, workspaceId]
   );
   return res.rows[0] || null;
 }
 
-async function updateUser(userId, { email, role, active, clientId }) {
+async function updateUser(userId, { email, role, active, clientId, workspaceId }) {
   if (!usingPg()) throw new Error('updateUser requiere PostgreSQL');
-  // Construir el SET dinámicamente para solo actualizar los campos que vienen
-  const fields = [];
-  const values = [];
+  const pool = getPool();
+
+  // Actualizar campos en users (email, active)
+  const userFields = [];
+  const userValues = [];
   let i = 1;
-  if (email     !== undefined) { fields.push(`email=$${i++}`);     values.push(email); }
-  if (role      !== undefined) { fields.push(`role=$${i++}`);      values.push(role); }
-  if (active    !== undefined) { fields.push(`active=$${i++}`);    values.push(active); }
-  if (clientId  !== undefined) { fields.push(`client_id=$${i++}`); values.push(clientId); }
-  if (fields.length === 0) throw new Error('Nada que actualizar');
-  values.push(userId);
-  const res = await getPool().query(
-    `UPDATE users SET ${fields.join(', ')} WHERE id=$${i}
-     RETURNING id, client_id, email, role, active, created_at`,
-    values
-  );
-  return res.rows[0] || null;
+  if (email  !== undefined) { userFields.push(`email=$${i++}`);  userValues.push(email); }
+  if (active !== undefined) { userFields.push(`active=$${i++}`); userValues.push(active); }
+
+  let userRow = null;
+  if (userFields.length > 0) {
+    userValues.push(userId);
+    const res = await pool.query(
+      `UPDATE users SET ${userFields.join(', ')} WHERE id=$${i}
+       RETURNING id, client_id, email, active, created_at`,
+      userValues
+    );
+    userRow = res.rows[0] || null;
+  }
+
+  // Actualizar rol en workspace_members
+  // workspaceId es opcional: si se omite, actualiza en todos los workspaces del usuario
+  const wsId = workspaceId || clientId;
+  let memberRole = null;
+  if (role !== undefined) {
+    if (wsId) {
+      const res = await pool.query(
+        `UPDATE workspace_members SET role = $1
+         WHERE user_id = $2 AND workspace_id = $3
+         RETURNING role`,
+        [role, userId, wsId]
+      );
+      memberRole = res.rows[0]?.role;
+    } else {
+      // Sin workspace específico: actualizar el primer workspace del usuario
+      const res = await pool.query(
+        `UPDATE workspace_members SET role = $1
+         WHERE user_id = $2
+         RETURNING role`,
+        [role, userId]
+      );
+      memberRole = res.rows[0]?.role;
+    }
+  }
+
+  if (!userRow) {
+    // Si solo se cambió el rol, traer el usuario para retornar datos completos
+    const res = await pool.query(
+      `SELECT id, client_id, email, active, created_at FROM users WHERE id = $1`,
+      [userId]
+    );
+    userRow = res.rows[0] || null;
+  }
+
+  if (!userRow) return null;
+  return { ...userRow, role: memberRole };
 }
 
 async function listAllClients() {
   if (!usingPg()) return [];
   const res = await getPool().query(
-    `SELECT c.*,
-       (SELECT COUNT(*) FROM users    u WHERE u.client_id = c.id AND u.role != 'superadmin')::int AS user_count,
-       (SELECT COUNT(*) FROM articles a WHERE a.client_id = c.id)::int AS article_count,
-       (SELECT COUNT(*) FROM client_profiles p WHERE p.client_id = c.id)::int AS has_profile
-     FROM clients c
-     ORDER BY c.created_at DESC`
+    `SELECT w.*,
+       (SELECT COUNT(*) FROM workspace_members m WHERE m.workspace_id = w.id)::int AS user_count,
+       (SELECT COUNT(*) FROM articles a WHERE a.workspace_id = w.id)::int AS article_count,
+       (SELECT COUNT(*) FROM workspace_profiles p WHERE p.workspace_id = w.id)::int AS has_profile
+     FROM workspaces w
+     ORDER BY w.created_at DESC`
   );
   return res.rows;
 }
 
-async function getUsersByClientId(clientId) {
+async function getUsersByClientId(workspaceId) {
   if (!usingPg()) return [];
   const res = await getPool().query(
-    `SELECT id, email, role, active, created_at FROM users
-     WHERE client_id = $1 AND role != 'superadmin'
-     ORDER BY created_at DESC`,
-    [clientId]
+    `SELECT u.id, u.email, u.name, u.active, u.created_at, m.role
+     FROM workspace_members m
+     JOIN users u ON u.id = m.user_id
+     WHERE m.workspace_id = $1
+     ORDER BY u.created_at DESC`,
+    [workspaceId]
   );
   return res.rows;
 }
@@ -436,26 +553,150 @@ async function verifyUserPassword(email, password) {
 /**
  * Crea un usuario nuevo. La contraseña se hashea con pgcrypto (bcrypt, factor 10).
  */
-async function createUser({ email, password, clientId, role = 'editor' }) {
-  if (!usingPg()) throw new Error('createUser requiere PostgreSQL (DATABASE_URL)');
+/**
+ * Registro self-service: crea workspace + usuario + lo agrega como owner.
+ * Retorna { user, workspace }.
+ */
+async function getUserWorkspaces(userId) {
+  if (!usingPg()) return [];
   const res = await getPool().query(
-    `INSERT INTO users (email, password_hash, client_id, role)
-     VALUES ($1, crypt($2, gen_salt('bf', 10)), $3, $4)
-     RETURNING id, client_id, email, role, created_at`,
-    [email, password, clientId || DEFAULT_CLIENT_ID, role]
+    `SELECT w.id, w.name, w.slug, w.type, w.vertical, w.logo_url, m.role AS workspace_role
+     FROM workspace_members m
+     JOIN workspaces w ON w.id = m.workspace_id
+     WHERE m.user_id = $1
+     ORDER BY m.created_at ASC`,
+    [userId]
   );
-  return res.rows[0];
+  return res.rows;
+}
+
+async function updateWorkspaceBasic(workspaceId, { name, type }) {
+  if (!usingPg()) throw new Error('updateWorkspaceBasic requiere PostgreSQL');
+  const fields = [];
+  const values = [];
+  let i = 1;
+  if (name !== undefined) { fields.push(`name=$${i++}`); values.push(name); }
+  if (type !== undefined) { fields.push(`type=$${i++}`); values.push(type); }
+  if (fields.length === 0) return null;
+  values.push(workspaceId);
+  const res = await getPool().query(
+    `UPDATE workspaces SET ${fields.join(', ')} WHERE id=$${i} RETURNING *`,
+    values
+  );
+  return res.rows[0] || null;
+}
+
+async function createWorkspace({ userId, name, type = 'creator', vertical = 'creator' }) {
+  if (!usingPg()) throw new Error('createWorkspace requiere PostgreSQL');
+  const pool = getPool();
+
+  const slug = name
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .substring(0, 60) + '-' + Date.now().toString(36);
+
+  const wsRes = await pool.query(
+    `INSERT INTO workspaces (name, slug, type, vertical) VALUES ($1, $2, $3, $4) RETURNING *`,
+    [name, slug, type, vertical]
+  );
+  const workspace = wsRes.rows[0];
+
+  await pool.query(
+    `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1, $2, 'owner')`,
+    [workspace.id, userId]
+  );
+
+  return workspace;
+}
+
+async function registerUser({ name, email, password, workspaceName }) {
+  if (!usingPg()) throw new Error('registerUser requiere PostgreSQL (DATABASE_URL)');
+  const pool = getPool();
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    // Verificar que el email no esté tomado
+    const existing = await client.query(`SELECT id FROM users WHERE email = $1`, [email]);
+    if (existing.rows.length > 0) throw new Error('EMAIL_TAKEN');
+
+    // Generar slug del workspace
+    const slug = workspaceName
+      .toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .substring(0, 60) + '-' + Date.now().toString(36);
+
+    // Crear workspace
+    const wsRes = await client.query(
+      `INSERT INTO workspaces (name, slug, type, vertical) VALUES ($1, $2, 'creator', 'creator') RETURNING *`,
+      [workspaceName, slug]
+    );
+    const workspace = wsRes.rows[0];
+
+    // Crear usuario
+    const userRes = await client.query(
+      `INSERT INTO users (email, password_hash, name, client_id, role)
+       VALUES ($1, crypt($2, gen_salt('bf', 10)), $3, $4, 'user')
+       RETURNING id, email, name, role`,
+      [email, password, name, workspace.id]
+    );
+    const user = userRes.rows[0];
+
+    // Agregar como owner del workspace
+    await client.query(
+      `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1, $2, 'owner')`,
+      [workspace.id, user.id]
+    );
+
+    await client.query('COMMIT');
+    return { user, workspace };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+async function createUser({ email, password, clientId, workspaceId, role = 'editor' }) {
+  if (!usingPg()) throw new Error('createUser requiere PostgreSQL (DATABASE_URL)');
+  const wsId = workspaceId || clientId || DEFAULT_CLIENT_ID;
+  const client = await getPool();
+
+  // Crear usuario global
+  const userRes = await client.query(
+    `INSERT INTO users (email, password_hash, client_id, role)
+     VALUES ($1, crypt($2, gen_salt('bf', 10)), $3, 'user')
+     RETURNING id, client_id, email, role, created_at`,
+    [email, password, wsId]
+  );
+  const user = userRes.rows[0];
+
+  // Agregar como miembro del workspace con el rol indicado
+  await client.query(
+    `INSERT INTO workspace_members (workspace_id, user_id, role)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (workspace_id, user_id) DO NOTHING`,
+    [wsId, user.id, role]
+  );
+
+  return { ...user, role };
 }
 
 // ---------------------------------------------------------------------------
 // SOCIAL ACCOUNTS
 // ---------------------------------------------------------------------------
 
-async function saveSocialAccount(clientId, { platform, username, channelId, connectionType = 'username', accessToken = null, refreshToken = null, tokenExpiresAt = null }) {
+async function saveSocialAccount(workspaceId, { platform, username, channelId, connectionType = 'username', accessToken = null, refreshToken = null, tokenExpiresAt = null }) {
   const res = await getPool().query(
-    `INSERT INTO social_accounts (client_id, platform, username, channel_id, connection_type, access_token, refresh_token, token_expires_at)
+    `INSERT INTO social_accounts (workspace_id, platform, username, channel_id, connection_type, access_token, refresh_token, token_expires_at)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-     ON CONFLICT (client_id, platform) DO UPDATE SET
+     ON CONFLICT (workspace_id, platform) DO UPDATE SET
        username = EXCLUDED.username,
        channel_id = EXCLUDED.channel_id,
        connection_type = EXCLUDED.connection_type,
@@ -463,30 +704,67 @@ async function saveSocialAccount(clientId, { platform, username, channelId, conn
        refresh_token = COALESCE(EXCLUDED.refresh_token, social_accounts.refresh_token),
        token_expires_at = COALESCE(EXCLUDED.token_expires_at, social_accounts.token_expires_at)
      RETURNING *`,
-    [clientId, platform, username || null, channelId || null, connectionType, accessToken, refreshToken, tokenExpiresAt]
+    [workspaceId, platform, username || null, channelId || null, connectionType, accessToken, refreshToken, tokenExpiresAt]
   );
   return res.rows[0];
 }
 
-async function getSocialAccounts(clientId) {
+async function getSocialAccounts(workspaceId) {
   const res = await getPool().query(
-    `SELECT * FROM social_accounts WHERE client_id = $1 ORDER BY created_at`,
-    [clientId]
+    `SELECT * FROM social_accounts WHERE workspace_id = $1 ORDER BY created_at`,
+    [workspaceId]
   );
   return res.rows;
 }
 
-async function deleteSocialAccount(clientId, platform) {
+async function deleteSocialAccount(workspaceId, platform) {
   await getPool().query(
-    `DELETE FROM social_accounts WHERE client_id = $1 AND platform = $2`,
-    [clientId, platform]
+    `DELETE FROM social_accounts WHERE workspace_id = $1 AND platform = $2`,
+    [workspaceId, platform]
   );
 }
 
-async function saveContentPatterns(clientId, patterns) {
+async function getCompetitors(workspaceId) {
+  if (!usingPg()) return [];
+  const res = await getPool().query(
+    `SELECT handle, platform, label, display_name FROM competitors WHERE workspace_id = $1 ORDER BY created_at`,
+    [workspaceId]
+  );
+  return res.rows;
+}
+
+async function saveStudioContent(workspaceId, articleId, studioContent) {
   await getPool().query(
-    `UPDATE client_profiles SET content_patterns = $1, updated_at = now() WHERE client_id = $2`,
-    [JSON.stringify(patterns), clientId]
+    `UPDATE articles SET studio_content = $1
+     WHERE id = $2 AND workspace_id = $3`,
+    [JSON.stringify(studioContent), articleId, workspaceId]
+  );
+}
+
+async function getStudioContent(workspaceId, articleId) {
+  const res = await getPool().query(
+    `SELECT studio_content FROM articles WHERE id = $1 AND workspace_id = $2`,
+    [articleId, workspaceId]
+  );
+  return res.rows[0]?.studio_content || null;
+}
+
+async function saveContentPatterns(workspaceId, patterns) {
+  await getPool().query(
+    `UPDATE workspace_profiles SET content_patterns = $1, updated_at = now() WHERE workspace_id = $2`,
+    [JSON.stringify(patterns), workspaceId]
+  );
+}
+
+/**
+ * Guarda el perfil de IA compilado en workspaces.ai_profile.
+ * Se llama al terminar el onboarding y al actualizar la configuración del workspace.
+ */
+async function saveAiProfile(workspaceId, aiProfile) {
+  if (!usingPg()) return;
+  await getPool().query(
+    `UPDATE workspaces SET ai_profile = $1 WHERE id = $2`,
+    [aiProfile, workspaceId]
   );
 }
 
@@ -500,14 +778,21 @@ module.exports = {
   addToParrilla, removeFromParrilla, getParrilla, getSlotCount,
   // Clients
   saveClient, getClient,
+  saveWizardData,
   saveClientProfile, getClientProfile,
   saveClientScorerConfig, getClientScorerConfig,
   // Users
-  verifyUserPassword, createUser,
+  verifyUserPassword, createUser, registerUser,
+  // Workspaces
+  getUserWorkspaces, createWorkspace, updateWorkspaceBasic,
   // Admin
   listAllClients, getUsersByClientId, updateClient, updateUser,
   // Social accounts
   saveSocialAccount, getSocialAccounts, deleteSocialAccount, saveContentPatterns,
+  getCompetitors,
+  saveStudioContent, getStudioContent,
+  // AI profile
+  saveAiProfile,
   // Utils
   DEFAULT_CLIENT_ID,
 };

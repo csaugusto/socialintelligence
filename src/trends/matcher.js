@@ -5,6 +5,7 @@
  */
 
 const Groq = require('groq-sdk');
+const { buildSystemPrompt } = require('../lib/ai-profile.js');
 
 let client = null;
 function getClient() {
@@ -26,7 +27,7 @@ const MIN_FIT_SCORE = 55;
  * @param {object}   profile - Perfil del creator con content_patterns opcionales
  * @returns {object[]} Tendencias filtradas y enriquecidas con fit_score, fit_reason, angle_hint
  */
-async function match(trends, profile) {
+async function match(trends, profile, workspace) {
   if (!process.env.GROQ_API_KEY) {
     console.warn('[Matcher] GROQ_API_KEY no configurada — devolviendo trends sin filtrar.');
     return trends;
@@ -39,6 +40,9 @@ async function match(trends, profile) {
     ? buildPromptWithHistory(trends, profile)
     : buildPromptNichoOnly(trends, profile);
 
+  const matcherInstructions = buildMatcherSystemPrompt(hasPatterns);
+  const systemMsg = buildSystemPrompt(workspace, matcherInstructions);
+
   try {
     const completion = await getClient().chat.completions.create({
       model: 'llama-3.3-70b-versatile',
@@ -46,7 +50,7 @@ async function match(trends, profile) {
       max_tokens: 1200,
       response_format: { type: 'json_object' },
       messages: [
-        { role: 'system', content: buildSystemPrompt(hasPatterns) },
+        { role: 'system', content: systemMsg },
         { role: 'user', content: prompt },
       ],
     });
@@ -93,7 +97,7 @@ function normalize(str = '') {
   return str.toLowerCase().trim().replace(/[^a-záéíóúüñ0-9\s]/g, '').replace(/\s+/g, ' ');
 }
 
-function buildSystemPrompt(hasPatterns) {
+function buildMatcherSystemPrompt(hasPatterns) {
   if (hasPatterns) {
     return `Eres el estratega personal de contenido de este creator. Conoces profundamente su historia: qué temas le resuenan a su audiencia, qué formatos ha probado, cuál es su voz. Tu trabajo es identificar cuáles tendencias actuales puede cubrir de manera auténtica — no forzada — y con ventaja diferencial frente a otros creators en su nicho. Respondes ÚNICAMENTE con JSON válido.`;
   }

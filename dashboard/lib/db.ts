@@ -17,7 +17,7 @@ export async function getClientProfile(clientId: string) {
   const p = getPool();
   if (!p) return null;
   const res = await p.query(
-    'SELECT * FROM client_profiles WHERE client_id = $1',
+    'SELECT * FROM workspace_profiles WHERE workspace_id = $1',
     [clientId]
   );
   return res.rows[0] || null;
@@ -26,6 +26,6 @@ export async function getClientProfile(clientId: string) {
 export async function getClient(clientId: string) {
   const p = getPool();
   if (!p) return null;
-  const res = await p.query('SELECT * FROM clients WHERE id = $1', [clientId]);
+  const res = await p.query('SELECT * FROM workspaces WHERE id = $1', [clientId]);
   return res.rows[0] || null;
 }

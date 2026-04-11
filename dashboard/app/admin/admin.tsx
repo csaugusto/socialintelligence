@@ -33,11 +33,25 @@ type ClientDetail = {
 };
 
 const TYPE_LABELS: Record<string, string> = {
+  // Creator / marca
+  creator: 'Creador', brand: 'Marca personal', agency: 'Agencia', blog: 'Blog',
+  // Media (legacy)
   radio: 'Radio', tv: 'TV', digital: 'Digital',
   portal: 'Portal', revista: 'Revista', otro: 'Otro',
 };
 const COVERAGE_LABELS: Record<string, string> = {
   nacional: 'Nacional', regional: 'Regional', local: 'Local',
+};
+const ROLE_LABELS: Record<string, string> = {
+  owner: 'Owner', editor: 'Editor', creator: 'Creator / CM',
+  analyst: 'Analista', viewer: 'Viewer',
+};
+const ROLE_DESCRIPTIONS: Record<string, string> = {
+  owner:   'Control total, puede invitar usuarios',
+  editor:  'Configura, revisa y aprueba contenido',
+  creator: 'Genera y mueve contenido',
+  analyst: 'Solo lectura de resultados',
+  viewer:  'Solo consulta (cliente externo)',
 };
 
 export default function AdminPanel() {
@@ -191,13 +205,8 @@ function ClientDetail({
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const router = useRouter();
 
-  async function handleImpersonate() {
-    const res = await fetch('/api/admin/impersonate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ clientId: client.id, clientName: client.name }),
-    });
-    if (res.ok) router.push('/');
+  function handleOpenPreview() {
+    window.open(`/?viewAs=${client.id}`, '_blank');
   }
 
   return (
@@ -217,10 +226,10 @@ function ClientDetail({
               Editar
             </button>
             <button
-              onClick={handleImpersonate}
+              onClick={handleOpenPreview}
               className="text-xs px-2.5 py-1 bg-blue-700 hover:bg-blue-600 border border-blue-600 rounded-lg transition-colors text-white font-medium"
             >
-              Ver dashboard →
+              Ver dashboard ↗
             </button>
           </div>
         </div>
@@ -328,7 +337,7 @@ function ClientDetail({
 }
 
 function NewClientModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
-  const [form, setForm] = useState({ name: '', slug: '', type: 'digital', coverage: 'local', region: '', vertical: 'media' });
+  const [form, setForm] = useState({ name: '', slug: '', type: 'creator', coverage: 'local', region: '', vertical: 'creator' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -360,73 +369,14 @@ function NewClientModal({ onClose, onCreated }: { onClose: () => void; onCreated
 
         <div className="space-y-4">
           <div>
-            <label className="text-xs text-gray-500 uppercase tracking-wider block mb-1">Nombre del medio</label>
-            <input
-              type="text"
-              value={form.name}
-              onChange={e => setForm(f => ({ ...f, name: e.target.value, slug: autoSlug(e.target.value) }))}
-              placeholder="Ej: Noticias Jalisco"
-              className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-gray-500 uppercase tracking-wider block mb-1">Slug (URL)</label>
-            <input
-              type="text"
-              value={form.slug}
-              onChange={e => setForm(f => ({ ...f, slug: e.target.value }))}
-              placeholder="noticias-jalisco"
-              className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-blue-500"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-gray-500 uppercase tracking-wider block mb-1">Tipo</label>
-              <select
-                value={form.type}
-                onChange={e => setForm(f => ({ ...f, type: e.target.value }))}
-                className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
-              >
-                <option value="digital">Digital</option>
-                <option value="portal">Portal</option>
-                <option value="radio">Radio</option>
-                <option value="tv">TV</option>
-                <option value="revista">Revista</option>
-                <option value="otro">Otro</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 uppercase tracking-wider block mb-1">Cobertura</label>
-              <select
-                value={form.coverage}
-                onChange={e => setForm(f => ({ ...f, coverage: e.target.value }))}
-                className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
-              >
-                <option value="local">Local</option>
-                <option value="regional">Regional</option>
-                <option value="nacional">Nacional</option>
-              </select>
-            </div>
-          </div>
-          <div>
-            <label className="text-xs text-gray-500 uppercase tracking-wider block mb-1">Región / Ciudad <span className="text-gray-600">(opcional)</span></label>
-            <input
-              type="text"
-              value={form.region}
-              onChange={e => setForm(f => ({ ...f, region: e.target.value }))}
-              placeholder="Ej: Guadalajara, Jalisco"
-              className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
-            />
-          </div>
-          <div>
             <label className="text-xs text-gray-500 uppercase tracking-wider block mb-2">Producto</label>
             <div className="grid grid-cols-2 gap-2">
-              {[{ value: 'media', label: 'Media Intelligence', sub: 'Medios, portales, radios' },
-                { value: 'creator', label: 'Creator Intelligence', sub: 'Creadores, marcas personales' }].map(v => (
+              {[{ value: 'creator', label: 'Creator Intelligence', sub: 'Creadores, marcas personales' },
+                { value: 'media',   label: 'Media Intelligence',   sub: 'Medios, portales, radios' }].map(v => (
                 <button
                   key={v.value}
                   type="button"
-                  onClick={() => setForm(f => ({ ...f, vertical: v.value }))}
+                  onClick={() => setForm(f => ({ ...f, vertical: v.value, type: v.value === 'creator' ? 'creator' : 'digital' }))}
                   className={`text-left px-3 py-2.5 rounded-lg border transition-colors ${
                     form.vertical === v.value
                       ? 'bg-blue-900/50 border-blue-600 text-blue-200'
@@ -439,6 +389,72 @@ function NewClientModal({ onClose, onCreated }: { onClose: () => void; onCreated
               ))}
             </div>
           </div>
+          <div>
+            <label className="text-xs text-gray-500 uppercase tracking-wider block mb-1">Nombre</label>
+            <input
+              type="text"
+              value={form.name}
+              onChange={e => setForm(f => ({ ...f, name: e.target.value, slug: autoSlug(e.target.value) }))}
+              placeholder=""
+              className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 uppercase tracking-wider block mb-1">Slug (URL)</label>
+            <input
+              type="text"
+              value={form.slug}
+              onChange={e => setForm(f => ({ ...f, slug: e.target.value }))}
+              placeholder=""
+              className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-blue-500"
+            />
+          </div>
+          {form.vertical === 'creator' ? (
+            <div>
+              <label className="text-xs text-gray-500 uppercase tracking-wider block mb-1">Tipo de cuenta</label>
+              <select
+                value={form.type}
+                onChange={e => setForm(f => ({ ...f, type: e.target.value }))}
+                className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+              >
+                <option value="creator">Creador de contenido</option>
+                <option value="brand">Marca personal</option>
+                <option value="agency">Agencia</option>
+                <option value="blog">Blog / Publisher</option>
+                <option value="otro">Otro</option>
+              </select>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-gray-500 uppercase tracking-wider block mb-1">Tipo</label>
+                <select
+                  value={form.type}
+                  onChange={e => setForm(f => ({ ...f, type: e.target.value }))}
+                  className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                >
+                  <option value="digital">Digital</option>
+                  <option value="portal">Portal</option>
+                  <option value="radio">Radio</option>
+                  <option value="tv">TV</option>
+                  <option value="revista">Revista</option>
+                  <option value="otro">Otro</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 uppercase tracking-wider block mb-1">Cobertura</label>
+                <select
+                  value={form.coverage}
+                  onChange={e => setForm(f => ({ ...f, coverage: e.target.value }))}
+                  className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                >
+                  <option value="local">Local</option>
+                  <option value="regional">Regional</option>
+                  <option value="nacional">Nacional</option>
+                </select>
+              </div>
+            </div>
+          )}
         </div>
 
         {error && <p className="text-red-400 text-xs mt-3">{error}</p>}
@@ -452,7 +468,7 @@ function NewClientModal({ onClose, onCreated }: { onClose: () => void; onCreated
             disabled={saving || !form.name || !form.slug}
             className="flex-1 text-sm py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white transition-colors"
           >
-            {saving ? 'Creando...' : 'Crear cliente'}
+            {saving ? 'Creando...' : 'Crear workspace'}
           </button>
         </div>
       </div>
@@ -500,7 +516,7 @@ function NewUserModal({ clientId, clientName, onClose, onCreated }: {
               type="email"
               value={form.email}
               onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-              placeholder="editor@medio.com"
+              placeholder=""
               className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
             />
           </div>
@@ -514,14 +530,15 @@ function NewUserModal({ clientId, clientName, onClose, onCreated }: {
             />
           </div>
           <div>
-            <label className="text-xs text-gray-500 uppercase tracking-wider block mb-1">Rol</label>
+            <label className="text-xs text-gray-500 uppercase tracking-wider block mb-1">Rol en el workspace</label>
             <select
               value={form.role}
               onChange={e => setForm(f => ({ ...f, role: e.target.value }))}
               className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
             >
-              <option value="editor">Editor</option>
-              <option value="admin">Admin</option>
+              {Object.entries(ROLE_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>{label} — {ROLE_DESCRIPTIONS[value]}</option>
+              ))}
             </select>
           </div>
         </div>
@@ -638,7 +655,7 @@ function EditClientModal({ client, onClose, onSaved }: {
               type="text"
               value={form.region}
               onChange={e => setForm(f => ({ ...f, region: e.target.value }))}
-              placeholder="Ej: Guadalajara, Jalisco"
+              placeholder=""
               className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
             />
           </div>
@@ -703,16 +720,9 @@ function EditUserModal({ user, currentClientId, onClose, onSaved }: {
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [form, setForm] = useState({ email: user.email, role: user.role, active: user.active, clientId: currentClientId });
-  const [clients, setClients] = useState<Client[]>([]);
+  const [form, setForm] = useState({ email: user.email, role: user.role, active: user.active });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-
-  useEffect(() => {
-    fetch('/api/admin/clients').then(r => r.json()).then(data => {
-      if (Array.isArray(data)) setClients(data);
-    });
-  }, []);
 
   async function handleSave() {
     setError('');
@@ -720,7 +730,7 @@ function EditUserModal({ user, currentClientId, onClose, onSaved }: {
     const res = await fetch(`/api/admin/users/${user.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...form }),
+      body: JSON.stringify({ ...form, workspaceId: currentClientId }),
     });
     const data = await res.json();
     setSaving(false);
@@ -747,31 +757,17 @@ function EditUserModal({ user, currentClientId, onClose, onSaved }: {
             />
           </div>
           <div>
-            <label className="text-xs text-gray-500 uppercase tracking-wider block mb-1">Rol</label>
+            <label className="text-xs text-gray-500 uppercase tracking-wider block mb-1">Rol en el workspace</label>
             <select
               value={form.role}
               onChange={e => setForm(f => ({ ...f, role: e.target.value }))}
               className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
             >
-              <option value="editor">Editor</option>
-              <option value="admin">Admin</option>
-              <option value="superadmin">Superadmin</option>
+              {Object.entries(ROLE_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>{label} — {ROLE_DESCRIPTIONS[value]}</option>
+              ))}
             </select>
           </div>
-          {form.role !== 'superadmin' && (
-            <div>
-              <label className="text-xs text-gray-500 uppercase tracking-wider block mb-1">Cliente asignado</label>
-              <select
-                value={form.clientId}
-                onChange={e => setForm(f => ({ ...f, clientId: e.target.value }))}
-                className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
-              >
-                {clients.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
           <div className="flex items-center gap-3">
             <label className="text-xs text-gray-500 uppercase tracking-wider">Estado</label>
             <button

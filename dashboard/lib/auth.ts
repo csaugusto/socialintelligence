@@ -8,13 +8,18 @@ const COOKIE = 'si_session';
 
 export type Session = {
   userId: string;
+  workspaceId: string;
+  // Alias para compatibilidad — apunta al mismo valor que workspaceId
   clientId: string;
+  // Rol de sistema: 'superadmin' | 'user'
+  // El rol dentro del workspace (owner/editor/creator/analyst/viewer) está en workspaceRole
   role: string;
+  workspaceRole: string;
   impersonating?: boolean;
 };
 
 export async function createSession(session: Session) {
-  const token = await new SignJWT(session)
+  const token = await new SignJWT({ ...session })
     .setProtectedHeader({ alg: 'HS256' })
     .setExpirationTime('8h')
     .sign(SECRET);
@@ -35,11 +40,18 @@ export async function getSession(): Promise<Session | null> {
     const token = cookieStore.get(COOKIE)?.value;
     if (!token) return null;
     const { payload } = await jwtVerify(token, SECRET);
-    if (!payload.userId || !payload.clientId) return null;
+    if (!payload.userId) return null;
+
+    // workspaceId es la fuente de verdad; clientId es alias para compatibilidad
+    const workspaceId = (payload.workspaceId || payload.clientId) as string;
+    if (!workspaceId && payload.role !== 'superadmin') return null;
+
     return {
-      userId: payload.userId as string,
-      clientId: payload.clientId as string,
-      role: (payload.role as string) || 'editor',
+      userId:        payload.userId as string,
+      workspaceId:   workspaceId || '',
+      clientId:      workspaceId || '',   // alias
+      role:          (payload.role as string) || 'user',
+      workspaceRole: (payload.workspaceRole as string) || 'editor',
       impersonating: (payload.impersonating as boolean) || false,
     };
   } catch {
