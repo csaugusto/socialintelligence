@@ -38,7 +38,7 @@ ok "Paquetes instalados"
 
 # ── 2. Node.js 20 ────────────────────────────────────────────────────────────
 log "Instalando Node.js 20..."
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - -qq
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt-get install -y -qq nodejs
 ok "Node.js $(node -v) instalado"
 
