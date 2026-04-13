@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -33,9 +34,12 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-white">Social Intelligence</h1>
-          <p className="text-gray-400 text-sm mt-1">Panel editorial</p>
+        <div className="flex flex-col items-center mb-8 gap-3">
+          <Image src="/logo.png" alt="Creator Intelligence" width={96} height={96} />
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-white">Creator Intelligence</h1>
+            <p className="text-gray-400 text-sm mt-1">Panel editorial</p>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="bg-gray-900 rounded-xl p-6 space-y-4 border border-gray-800">

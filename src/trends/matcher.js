@@ -45,7 +45,7 @@ async function match(trends, profile, workspace) {
 
   try {
     const completion = await getClient().chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+      model: 'llama-3.1-8b-instant',
       temperature: 0.2,
       max_tokens: 1200,
       response_format: { type: 'json_object' },

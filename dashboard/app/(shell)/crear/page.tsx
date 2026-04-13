@@ -282,6 +282,9 @@ function ContextPanel({
   socialAccounts,
   onNetworkChange,
   onClearContext,
+  briefs,
+  selectedBriefId,
+  onSelectBrief,
 }: {
   title?: string;
   angle?: string;
@@ -290,6 +293,9 @@ function ContextPanel({
   socialAccounts: { platform: string; username: string }[];
   onNetworkChange: (n: string) => void;
   onClearContext: () => void;
+  briefs: { id: string; title: string; angle: string }[];
+  selectedBriefId: string;
+  onSelectBrief: (id: string, title: string, angle: string) => void;
 }) {
   // Mostrar solo las redes activas del creator, o todas si no hay perfil cargado
   const visibleNetworks = activeNetworks.length
@@ -326,10 +332,27 @@ function ContextPanel({
           </div>
         ) : (
           <div>
-            <p className="text-xs uppercase tracking-wider mb-2" style={{ color: '#5C5A7A' }}>Sin idea de origen</p>
-            <p className="text-xs leading-relaxed" style={{ color: '#3A3858' }}>
-              Abre un brief desde Oportunidades para tener contexto de IA
-            </p>
+            <p className="text-xs uppercase tracking-wider mb-2" style={{ color: '#5C5A7A' }}>Elige una idea</p>
+            <select
+              value={selectedBriefId}
+              onChange={e => {
+                const id = e.target.value;
+                const brief = briefs.find(b => b.id === id);
+                if (brief) onSelectBrief(id, brief.title, brief.angle || '');
+                else onSelectBrief('', '', '');
+              }}
+              className="w-full text-xs px-3 py-2 rounded-xl transition-colors"
+              style={{
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                color: '#A09EC0',
+              }}
+            >
+              <option value="">— Sin contexto —</option>
+              {briefs.map(b => (
+                <option key={b.id} value={b.id}>{b.title}</option>
+              ))}
+            </select>
           </div>
         )}
 
@@ -393,6 +416,8 @@ function ContextPanel({
   );
 }
 
+const EMPTY_TABS: Record<Tab, string> = { gancho: '', guion: '', caption: '', cta: '', articulo: '', seo: '', variantes: '' };
+
 // ─── Página principal ──────────────────────────────────────────────────────────
 
 export default function CrearPage() {
@@ -403,21 +428,26 @@ export default function CrearPage() {
   const articleId = searchParams.get('articleId') || '';
 
   const [activeTab, setActiveTab]   = useState<Tab>('gancho');
-  const [contents, setContents]     = useState<Record<Tab, string>>({
-    gancho: '', guion: '', caption: '', cta: '', articulo: '', seo: '', variantes: '',
-  });
+  const [contents, setContents]     = useState<Record<string, Record<Tab, string>>>({});
   const [network, setNetwork]         = useState('instagram');
   const [title, setTitle]             = useState(briefTitle);
   const [generating, setGenerating]   = useState(false);
   const [refining, setRefining]       = useState<string | null>(null);
   const [saving, setSaving]           = useState(false);
   const [saved, setSaved]             = useState(false);
+  const [showSchedule, setShowSchedule] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState('');
+  const [scheduleTime, setScheduleTime] = useState('10:00');
+  const [scheduling, setScheduling]   = useState(false);
+  const [scheduled, setScheduled]     = useState(false);
   const [contextTitle, setContextTitle] = useState(briefTitle);
-  const [contextAngle]                = useState(briefAngle);
+  const [contextAngle, setContextAngle] = useState(briefAngle);
   const [wordCount, setWordCount]     = useState(0);
   const [studioProfile, setStudioProfile] = useState<StudioProfile | null>(null);
+  const [briefs, setBriefs]           = useState<{ id: string; title: string; angle: string }[]>([]);
+  const [selectedBriefId, setSelectedBriefId] = useState(articleId);
 
-  // Cargar perfil + contenido guardado previamente
+  // Cargar perfil + briefs + contenido guardado previamente
   useEffect(() => {
     fetch('/api/creator/studio')
       .then(r => r.json())
@@ -429,12 +459,19 @@ export default function CrearPage() {
       })
       .catch(() => {});
 
+    fetch('/api/articles')
+      .then(r => r.json())
+      .then((list: { id: string; title: string; angle: string }[]) => {
+        if (Array.isArray(list)) setBriefs(list.filter(a => a.title));
+      })
+      .catch(() => {});
+
     if (articleId) {
       fetch(`/api/creator/studio/save?articleId=${articleId}`)
         .then(r => r.json())
-        .then((saved: { title?: string; network?: string; tabs?: Record<string, string> } | null) => {
+        .then((saved: { title?: string; network?: string; tabs?: Record<string, Record<Tab, string>> } | null) => {
           if (saved?.tabs) {
-            setContents(prev => ({ ...prev, ...saved.tabs }));
+            setContents(saved.tabs);
             if (saved.network) setNetwork(saved.network);
             if (saved.title)   setTitle(saved.title);
           }
@@ -445,7 +482,7 @@ export default function CrearPage() {
 
   const currentTab = TABS.find(t => t.key === activeTab)!;
   const currentNet = ALL_NETWORKS.find(n => n.key === network) || ALL_NETWORKS[1];
-  const content    = contents[activeTab];
+  const content    = contents[network]?.[activeTab] ?? '';
 
   useEffect(() => {
     const words = content.trim() ? content.trim().split(/\s+/).length : 0;
@@ -453,7 +490,10 @@ export default function CrearPage() {
   }, [content]);
 
   function setContent(val: string) {
-    setContents(prev => ({ ...prev, [activeTab]: val }));
+    setContents(prev => ({
+      ...prev,
+      [network]: { ...(prev[network] || EMPTY_TABS), [activeTab]: val },
+    }));
   }
 
   async function handleGenerate() {
@@ -513,7 +553,41 @@ export default function CrearPage() {
     }
   }
 
-  const filledTabs = Object.entries(contents).filter(([, v]) => v.trim()).length;
+  async function handleSchedule() {
+    if (!scheduleDate) return;
+    setScheduling(true);
+    try {
+      const scheduledFor = new Date(`${scheduleDate}T${scheduleTime}:00`).toISOString();
+      await fetch('/api/parrilla', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          articleId: selectedBriefId || articleId,
+          articleTitle: title,
+          network,
+          scheduledFor,
+          copy: content,
+        }),
+      });
+      // También actualizar localStorage para el calendario
+      if (selectedBriefId || articleId) {
+        const id = selectedBriefId || articleId;
+        const stored = JSON.parse(localStorage.getItem('pipeline_schedule') || '{}');
+        stored[id] = scheduleDate;
+        localStorage.setItem('pipeline_schedule', JSON.stringify(stored));
+      }
+      setScheduled(true);
+      setShowSchedule(false);
+      setTimeout(() => setScheduled(false), 3000);
+    } catch (err) {
+      console.error('[Schedule]', err);
+    } finally {
+      setScheduling(false);
+    }
+  }
+
+  const currentNetContents = contents[network] || EMPTY_TABS;
+  const filledTabs = Object.values(currentNetContents).filter(v => v.trim()).length;
 
   return (
     <div className="flex h-full min-h-0">
@@ -525,7 +599,30 @@ export default function CrearPage() {
         activeNetworks={studioProfile?.activeNetworks || []}
         socialAccounts={studioProfile?.socialAccounts || []}
         onNetworkChange={setNetwork}
-        onClearContext={() => setContextTitle('')}
+        onClearContext={() => { setContextTitle(''); setTitle(''); setContextAngle(''); setSelectedBriefId(''); }}
+        briefs={briefs}
+        selectedBriefId={selectedBriefId}
+        onSelectBrief={(id, t, a) => {
+          setSelectedBriefId(id);
+          setTitle(t);
+          setContextTitle(t);
+          setContextAngle(a);
+          if (id) {
+            fetch(`/api/creator/studio/save?articleId=${id}`)
+              .then(r => r.json())
+              .then((saved: { title?: string; network?: string; tabs?: Record<string, Record<Tab, string>> } | null) => {
+                if (saved?.tabs) {
+                  setContents(saved.tabs);
+                  if (saved.network) setNetwork(saved.network);
+                } else {
+                  setContents({});
+                }
+              })
+              .catch(() => { setContents({}); });
+          } else {
+            setContents({});
+          }
+        }}
       />
 
       {/* Editor principal */}
@@ -559,10 +656,13 @@ export default function CrearPage() {
           {/* Acciones globales */}
           <div className="flex items-center gap-2 flex-shrink-0">
             <button
+              onClick={() => setShowSchedule(true)}
               className="text-xs px-3 py-2 rounded-xl border transition-all"
-              style={{ borderColor: 'rgba(255,255,255,0.08)', color: '#A09EC0', background: 'rgba(255,255,255,0.03)' }}
+              style={scheduled
+                ? { borderColor: 'rgba(16,185,129,0.3)', color: '#34D399', background: 'rgba(16,185,129,0.08)' }
+                : { borderColor: 'rgba(255,255,255,0.08)', color: '#A09EC0', background: 'rgba(255,255,255,0.03)' }}
             >
-              📅 Programar
+              {scheduled ? '✓ Programado' : '📅 Programar'}
             </button>
             <button
               onClick={handleSave}
@@ -585,7 +685,7 @@ export default function CrearPage() {
         <div className="flex items-center gap-1 px-6 pt-3 pb-0 border-b overflow-x-auto"
           style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
           {TABS.map(tab => {
-            const hasContent = !!contents[tab.key].trim();
+            const hasContent = !!(contents[network]?.[tab.key] ?? '').trim();
             const isActive = activeTab === tab.key;
             return (
               <button
@@ -719,6 +819,64 @@ export default function CrearPage() {
             </div>
           </div>
         </aside>
+      )}
+
+      {/* Modal Programar */}
+      {showSchedule && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+          onClick={() => setShowSchedule(false)}>
+          <div className="rounded-2xl border p-6 w-80"
+            style={{ background: '#13112A', borderColor: 'rgba(255,255,255,0.1)' }}
+            onClick={e => e.stopPropagation()}>
+            <h3 className="text-base font-semibold text-white mb-1">Programar publicación</h3>
+            <p className="text-xs mb-5" style={{ color: '#5C5A7A' }}>
+              {currentNet.icon} {currentNet.label} · {title || 'Sin título'}
+            </p>
+
+            <div className="space-y-3 mb-5">
+              <div>
+                <label className="block text-xs mb-1.5" style={{ color: '#A09EC0' }}>Fecha</label>
+                <input
+                  type="date"
+                  value={scheduleDate}
+                  onChange={e => setScheduleDate(e.target.value)}
+                  min={new Date().toISOString().slice(0, 10)}
+                  className="w-full px-3 py-2 rounded-xl text-sm text-white focus:outline-none"
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+                />
+              </div>
+              <div>
+                <label className="block text-xs mb-1.5" style={{ color: '#A09EC0' }}>Hora</label>
+                <input
+                  type="time"
+                  value={scheduleTime}
+                  onChange={e => setScheduleTime(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl text-sm text-white focus:outline-none"
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowSchedule(false)}
+                className="flex-1 py-2 rounded-xl text-sm transition-all"
+                style={{ border: '1px solid rgba(255,255,255,0.08)', color: '#A09EC0' }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSchedule}
+                disabled={!scheduleDate || scheduling}
+                className="flex-1 py-2 rounded-xl text-sm font-medium transition-all disabled:opacity-40"
+                style={{ background: 'linear-gradient(135deg, #7C3AED, #A855F7)', color: 'white' }}
+              >
+                {scheduling ? 'Guardando...' : 'Programar'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

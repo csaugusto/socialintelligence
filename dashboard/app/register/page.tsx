@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -41,13 +42,9 @@ export default function RegisterPage() {
     >
       <div className="w-full max-w-sm">
         {/* Logo */}
-        <div className="flex items-center justify-center gap-2.5 mb-8">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-600 to-purple-400 flex items-center justify-center shadow-[0_0_20px_rgba(124,58,237,0.4)]">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M8 2L10.5 7H13L10 11L11 14.5L8 13L5 14.5L6 11L3 7H5.5L8 2Z" fill="white"/>
-            </svg>
-          </div>
-          <span className="text-white font-semibold">Creator Intelligence</span>
+        <div className="flex flex-col items-center gap-3 mb-8">
+          <Image src="/logo.png" alt="Creator Intelligence" width={96} height={96} />
+          <span className="text-white font-semibold text-lg">Creator Intelligence</span>
         </div>
 
         <div className="text-center mb-6">

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   LightningIcon,
   FlameIcon,
@@ -34,6 +35,7 @@ type Idea = {
   decayType: string;
   scores: Record<string, { content: number; moment: number }>;
   createdAt: string;
+  sourceTrend?: string;
 };
 
 type Trend = {
@@ -210,6 +212,7 @@ export default function HomeClient({
   emptyTitle,
   emptyBody,
 }: Props) {
+  const router = useRouter();
   const [ideas, setIdeas]           = useState<Idea[]>([]);
   const [loading, setLoading]       = useState(true);
   const [kpiValues, setKpiValues]   = useState<Record<string, number | null>>({});
@@ -281,10 +284,9 @@ export default function HomeClient({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'No se pudo generar');
       setGenerating(prev => ({ ...prev, [key]: 'done' }));
-      // Refrescar ideas
-      const r = await fetch('/api/articles');
-      const list = await r.json();
-      if (Array.isArray(list)) { setIdeas(list); computeKpis(list); }
+      if (data.id) {
+        setTimeout(() => router.push(`/briefs/${data.id}`), 400);
+      }
     } catch {
       setGenerating(prev => ({ ...prev, [key]: 'error' }));
     }
@@ -375,10 +377,20 @@ export default function HomeClient({
               <div className="space-y-2">
                 {trends.map((t) => {
                   const state = generating[t.keyword] || 'idle';
+                  const alreadyGenerated = state === 'idle' && ideas.some(
+                    a => a.sourceTrend && a.sourceTrend.toLowerCase() === t.keyword.toLowerCase()
+                  );
+                  const existingIdea = alreadyGenerated ? ideas.find(
+                    a => a.sourceTrend && a.sourceTrend.toLowerCase() === t.keyword.toLowerCase()
+                  ) : null;
                   return (
                     <div key={t.keyword}
                       className="flex items-center justify-between gap-4 px-4 py-3 rounded-xl"
-                      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      style={{
+                        background: alreadyGenerated ? 'rgba(16,185,129,0.04)' : 'rgba(255,255,255,0.03)',
+                        border: alreadyGenerated ? '1px solid rgba(16,185,129,0.15)' : '1px solid rgba(255,255,255,0.06)',
+                        opacity: alreadyGenerated ? 0.6 : 1,
+                      }}>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-white truncate">{t.keyword}</p>
                         {t.angle_hint && (
@@ -393,24 +405,35 @@ export default function HomeClient({
                             fit {t.fit_score}
                           </span>
                         )}
-                        <button
-                          onClick={() => generateBrief(t)}
-                          disabled={state !== 'idle'}
-                          className="text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all"
-                          style={state === 'done'
-                            ? { background: 'rgba(16,185,129,0.15)', color: '#34D399', border: '1px solid rgba(16,185,129,0.3)' }
-                            : state === 'error'
-                            ? { background: 'rgba(239,68,68,0.1)', color: '#F87171', border: '1px solid rgba(239,68,68,0.2)' }
-                            : { background: 'rgba(124,58,237,0.15)', color: '#A855F7', border: '1px solid rgba(124,58,237,0.3)' }
-                          }
-                        >
-                          {state === 'loading' && <ArrowClockwiseIcon size={12} className="animate-spin" />}
-                          {state === 'done'    && <CheckIcon size={12} />}
-                          {state === 'idle'    && 'Generar brief'}
-                          {state === 'loading' && 'Generando...'}
-                          {state === 'done'    && 'Listo'}
-                          {state === 'error'   && 'Reintentar'}
-                        </button>
+                        {alreadyGenerated ? (
+                          <a
+                            href={`/briefs/${existingIdea?.id}`}
+                            className="text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all"
+                            style={{ background: 'rgba(16,185,129,0.12)', color: '#34D399', border: '1px solid rgba(16,185,129,0.25)' }}
+                          >
+                            <CheckIcon size={12} />
+                            Ver brief
+                          </a>
+                        ) : (
+                          <button
+                            onClick={() => generateBrief(t)}
+                            disabled={state !== 'idle'}
+                            className="text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all"
+                            style={state === 'done'
+                              ? { background: 'rgba(16,185,129,0.15)', color: '#34D399', border: '1px solid rgba(16,185,129,0.3)' }
+                              : state === 'error'
+                              ? { background: 'rgba(239,68,68,0.1)', color: '#F87171', border: '1px solid rgba(239,68,68,0.2)' }
+                              : { background: 'rgba(124,58,237,0.15)', color: '#A855F7', border: '1px solid rgba(124,58,237,0.3)' }
+                            }
+                          >
+                            {state === 'loading' && <ArrowClockwiseIcon size={12} className="animate-spin" />}
+                            {state === 'done'    && <CheckIcon size={12} />}
+                            {state === 'idle'    && 'Generar brief'}
+                            {state === 'loading' && 'Generando...'}
+                            {state === 'done'    && 'Listo'}
+                            {state === 'error'   && 'Reintentar'}
+                          </button>
+                        )}
                       </div>
                     </div>
                   );

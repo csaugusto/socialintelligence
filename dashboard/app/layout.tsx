@@ -20,8 +20,8 @@ const oxanium = Oxanium({
 });
 
 export const metadata: Metadata = {
-  title: "Social Intelligence — Panel Editorial",
-  description: "Panel de publicación inteligente en redes sociales",
+  title: "Creator Intelligence",
+  description: "Tu copiloto de contenido inteligente",
 };
 
 export default function RootLayout({

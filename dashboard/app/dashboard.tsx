@@ -203,7 +203,7 @@ export default function Dashboard({ role, vertical, viewAsClientId, clientName, 
       <header className="border-b border-gray-800 px-6 py-4 flex items-center justify-between sticky top-0 bg-gray-950 z-10">
         <div className="flex items-center gap-3">
           <div>
-            <h1 className="text-lg font-bold tracking-tight">Social Intelligence</h1>
+            <h1 className="text-lg font-bold tracking-tight">Creator Intelligence</h1>
             <p className="text-xs text-gray-500">Panel editorial</p>
           </div>
           {workspaceId && workspaceName && (

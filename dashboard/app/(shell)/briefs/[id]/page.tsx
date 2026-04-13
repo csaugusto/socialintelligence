@@ -14,6 +14,12 @@ type NetworkScore = {
   recommendation: { action: string; label: string; detail: string };
 };
 
+type Fuente = {
+  tipo: 'video' | 'articulo' | 'busqueda';
+  label: string;
+  query: string;
+} | string;
+
 type Brief = {
   formato: string;
   duracion: string;
@@ -21,7 +27,7 @@ type Brief = {
   desarrollo: string[];
   cierre: string;
   tip_produccion: string;
-  fuentes: string[];
+  fuentes: Fuente[];
 };
 
 type Idea = {
@@ -39,6 +45,11 @@ type Idea = {
   createdAt: string;
 };
 
+type StudioContent = {
+  tabs: Record<string, Record<string, string>>;
+  updatedAt?: string;
+} | null;
+
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
 const NETWORKS = [
@@ -46,7 +57,19 @@ const NETWORKS = [
   { key: 'instagram', label: 'Instagram', icon: '📸', color: '#A855F7' },
   { key: 'x',         label: 'X',         icon: '✕',  color: '#60A5FA' },
   { key: 'facebook',  label: 'Facebook',  icon: '👥', color: '#34D399' },
+  { key: 'youtube',   label: 'YouTube',   icon: '▶️', color: '#EF4444' },
+  { key: 'linkedin',  label: 'LinkedIn',  icon: '💼', color: '#3B82F6' },
 ];
+
+const TAB_LABELS: Record<string, string> = {
+  gancho:   'Gancho',
+  guion:    'Guion',
+  caption:  'Caption',
+  cta:      'CTA',
+  articulo: 'Artículo',
+  seo:      'SEO',
+  variantes:'Variantes',
+};
 
 const DECAY: Record<string, { label: string; color: string }> = {
   INMEDIATA: { label: 'Urgente — publicar hoy',  color: '#EC4899' },
@@ -123,6 +146,7 @@ export default function BriefDetailPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>('tiktok');
   const [generating, setGenerating] = useState<string | null>(null);
+  const [studioContent, setStudioContent] = useState<StudioContent>(null);
 
   useEffect(() => {
     fetch('/api/articles')
@@ -131,7 +155,6 @@ export default function BriefDetailPage() {
         const found = Array.isArray(data) ? data.find(a => a.id === id) : null;
         setIdea(found || null);
         if (found) {
-          // Activar tab de la red con mayor score
           const top = NETWORKS.reduce((best, net) => {
             const s = found.scores?.[net.key]?.content || 0;
             const b = found.scores?.[best.key]?.content || 0;
@@ -141,6 +164,15 @@ export default function BriefDetailPage() {
         }
         setLoading(false);
       });
+
+    fetch(`/api/creator/studio/save?articleId=${id}`)
+      .then(r => r.json())
+      .then((saved: StudioContent) => {
+        if (saved && !('error' in (saved as object)) && saved.tabs) {
+          setStudioContent(saved);
+        }
+      })
+      .catch(() => {});
   }, [id]);
 
   async function generateCaption(network: string) {
@@ -414,6 +446,50 @@ export default function BriefDetailPage() {
               })}
             </Section>
           )}
+
+          {/* Fuentes */}
+          {(idea.brief?.fuentes?.length ?? 0) > 0 && (
+            <Section title="Puedes documentarte con...">
+              <div className="space-y-2">
+                {idea.brief!.fuentes.map((f, i) => {
+                  const fuente = typeof f === 'string'
+                    ? { tipo: 'busqueda' as const, label: f, query: f }
+                    : f;
+                  const isVideo = fuente.tipo === 'video';
+                  const isArticulo = fuente.tipo === 'articulo';
+                  const searchUrl = isVideo
+                    ? `https://www.youtube.com/results?search_query=${encodeURIComponent(fuente.query)}`
+                    : `https://www.google.com/search?q=${encodeURIComponent(fuente.query)}`;
+                  const icon = isVideo ? '▶️' : isArticulo ? '📄' : '🔍';
+                  const typeLabel = isVideo ? 'YouTube' : isArticulo ? 'Artículo' : 'Búsqueda';
+                  const typeColor = isVideo ? '#EF4444' : isArticulo ? '#3B82F6' : '#7C3AED';
+                  return (
+                    <a
+                      key={i}
+                      href={searchUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-start gap-3 p-3 rounded-xl transition-all group"
+                      style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}
+                      onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(124,58,237,0.3)')}
+                      onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)')}
+                    >
+                      <span className="text-base flex-shrink-0 mt-0.5">{icon}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-white leading-snug group-hover:text-purple-300 transition-colors">{fuente.label}</p>
+                        <span className="text-[10px] font-medium mt-0.5 inline-block"
+                          style={{ color: typeColor }}>{typeLabel}</span>
+                      </div>
+                      <svg className="flex-shrink-0 mt-0.5 opacity-30 group-hover:opacity-70 transition-opacity"
+                        width="12" height="12" viewBox="0 0 12 12" fill="none">
+                        <path d="M2 10L10 2M10 2H4M10 2V8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                      </svg>
+                    </a>
+                  );
+                })}
+              </div>
+            </Section>
+          )}
         </div>
 
         {/* Columna derecha */}
@@ -453,19 +529,59 @@ export default function BriefDetailPage() {
             </div>
           </Section>
 
-          {/* Fuentes */}
-          {(idea.brief?.fuentes?.length ?? 0) > 0 && (
-            <Section title="Fuentes y referencias">
-              <ul className="space-y-2">
-                {idea.brief!.fuentes.map((f, i) => (
-                  <li key={i} className="flex items-start gap-2">
-                    <span className="flex-shrink-0 text-xs mt-0.5" style={{ color: '#7C3AED' }}>·</span>
-                    <p className="text-xs leading-relaxed" style={{ color: '#A09EC0' }}>{f}</p>
-                  </li>
-                ))}
-              </ul>
-            </Section>
-          )}
+          {/* Contenido producido en Content Studio */}
+          {studioContent?.tabs && Object.keys(studioContent.tabs).length > 0 && (() => {
+            const networksWithContent = NETWORKS.filter(net => {
+              const netTabs = studioContent.tabs[net.key];
+              return netTabs && Object.values(netTabs).some(v => v?.trim());
+            });
+            if (!networksWithContent.length) return null;
+            return (
+              <Section title="Producido en Content Studio">
+                <div className="space-y-3">
+                  {networksWithContent.map(net => {
+                    const netTabs = studioContent.tabs[net.key] || {};
+                    const filledTabs = Object.entries(netTabs)
+                      .filter(([, v]) => v?.trim())
+                      .map(([k]) => TAB_LABELS[k] || k);
+                    return (
+                      <div key={net.key} className="rounded-xl p-3"
+                        style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium text-white flex items-center gap-1.5">
+                            {net.icon} {net.label}
+                          </span>
+                          <button
+                            onClick={() => {
+                              const params = new URLSearchParams({ title: idea!.title, angle: idea!.angle || '', articleId: idea!.id as string });
+                              router.push(`/crear?${params.toString()}`);
+                            }}
+                            className="text-[10px] px-2 py-1 rounded-lg transition-all"
+                            style={{ color: '#A855F7', background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.2)' }}
+                          >
+                            Editar
+                          </button>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {filledTabs.map(tab => (
+                            <span key={tab} className="text-[10px] px-2 py-0.5 rounded-full"
+                              style={{ background: 'rgba(16,185,129,0.1)', color: '#10B981', border: '1px solid rgba(16,185,129,0.2)' }}>
+                              ✓ {tab}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {studioContent.updatedAt && (
+                    <p className="text-[10px]" style={{ color: '#3A3858' }}>
+                      Última edición {new Date(studioContent.updatedAt).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  )}
+                </div>
+              </Section>
+            );
+          })()}
 
           {/* Metadata */}
           <Section title="Información">

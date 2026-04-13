@@ -144,11 +144,7 @@ export default function OnboardingWizard() {
       <div className="flex items-center justify-between px-8 py-5 border-b border-white/5">
         {/* Logo */}
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-600 to-purple-400 flex items-center justify-center">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M7 2L9.5 6H11.5L9 9.5L10 12.5L7 11L4 12.5L5 9.5L2.5 6H4.5L7 2Z" fill="white"/>
-            </svg>
-          </div>
+          <img src="/logo.png" alt="Creator Intelligence" className="w-12 h-12" />
           <span className="text-sm font-semibold text-white">Creator Intelligence</span>
         </div>
 

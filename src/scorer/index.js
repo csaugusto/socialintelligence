@@ -397,7 +397,7 @@ Responde ÚNICAMENTE con JSON válido:
 
   try {
     const completion = await client.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+      model: 'llama-3.1-8b-instant',
       temperature: 0.2,
       max_tokens: 250,
       response_format: { type: 'json_object' },

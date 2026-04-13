@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 
 const NAV = [
@@ -48,14 +49,13 @@ export default function Sidebar() {
       {/* Logo */}
       <div className="px-4 py-5 border-b" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
         <div className="flex items-center gap-2.5">
-          <div
-            className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-            style={{ background: 'linear-gradient(135deg, #7C3AED, #A855F7)' }}
-          >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M7 1.5L9 5.5H12.5L9.5 8.5L10.5 12.5L7 10.5L3.5 12.5L4.5 8.5L1.5 5.5H5L7 1.5Z" fill="white"/>
-            </svg>
-          </div>
+          <Image
+            src="/logo.png"
+            alt="Creator Intelligence"
+            width={56}
+            height={56}
+            className="flex-shrink-0"
+          />
           <div>
             <p className="text-sm font-semibold text-white leading-tight" style={{ fontFamily: 'var(--font-oxanium)' }}>Creator</p>
             <p className="text-xs leading-tight" style={{ color: '#5C5A7A', fontFamily: 'var(--font-oxanium)' }}>Intelligence</p>

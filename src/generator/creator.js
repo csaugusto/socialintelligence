@@ -135,7 +135,7 @@ Devuelve este JSON exacto:
     "cierre": "cómo cerrar el video/post — incluye el call to action",
     "tip_produccion": "consejo práctico de producción para este formato y red",
     "fuentes": [
-      "fuente o referencia que el creator puede consultar para documentarse — da el nombre del medio o término de búsqueda específico"
+      { "tipo": "video|articulo|busqueda", "label": "nombre descriptivo de la fuente o término", "query": "término exacto para buscar en Google o YouTube" }
     ]
   },
   "copy": {
@@ -158,7 +158,7 @@ REGLAS:
 - Si relevant es false, puedes omitir todos los demás campos excepto relevance_reason
 - El ángulo debe ser honesto — no fuerces conexiones que no existen
 - El brief debe ser accionable: el creator puede producir el contenido solo con leerlo
-- Las fuentes deben ser términos de búsqueda específicos o medios reales, no URLs inventadas
+- Las fuentes deben ser 3-5 recursos reales: mezcla de videos (YouTube), artículos (medios conocidos) y búsquedas. El campo "query" es el término exacto para buscar
 - decayType: INMEDIATA=tendencia de horas, CORTA=días, NORMAL=semanas, EVERGREEN=siempre relevante
 - Escribe en español mexicano natural`;
 }

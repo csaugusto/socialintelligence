@@ -193,7 +193,7 @@ export default function OnboardingMedia() {
     <div className="min-h-screen bg-gray-950 text-white">
       {/* Header */}
       <header className="border-b border-gray-800 px-6 py-4 sticky top-0 bg-gray-950 z-10">
-        <h1 className="text-lg font-bold tracking-tight">Social Intelligence</h1>
+        <h1 className="text-lg font-bold tracking-tight">Creator Intelligence</h1>
         <p className="text-xs text-gray-500">Configuracion de nuevo cliente</p>
       </header>
 
